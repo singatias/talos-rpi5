@@ -4,7 +4,7 @@
 # Runs on ARM64 self-hosted runner (ASUS GX10)
 #
 # Produces:
-#   - Installer container image → Docker Hub (svrnty/installer:<tag>)
+#   - Installer container image → Docker Hub (svrnty/talos-rpi5:<tag>)
 #   - Raw disk image → Gitea release (metal-arm64.raw.zst)
 
 name: Build Talos CM5 Image
@@ -83,7 +83,7 @@ jobs:
 
             ## Artifacts
             - `metal-arm64.raw.zst` — Raw disk image for eMMC flashing
-            - `docker.io/svrnty/installer:${{ steps.version.outputs.tag }}` — Installer image for `talosctl upgrade`
+            - `docker.io/svrnty/talos-rpi5:${{ steps.version.outputs.tag }}` — Installer image for `talosctl upgrade`
 
             ## Usage
             ```bash
@@ -91,7 +91,7 @@ jobs:
             ./scripts/flash-emmc.sh metal-arm64.raw.zst
 
             # Upgrade existing node
-            talosctl upgrade --image docker.io/svrnty/installer:${{ steps.version.outputs.tag }}
+            talosctl upgrade --image docker.io/svrnty/talos-rpi5:${{ steps.version.outputs.tag }}
             ```
           release-dir: .
           release-notes-assistant: none

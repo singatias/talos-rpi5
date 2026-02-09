@@ -6,7 +6,7 @@ The official Talos Image Factory does not support CM5 — the mainline kernel la
 
 ## What it builds
 
-- **Installer image** → `docker.io/svrnty/installer:<tag>` (for `talosctl upgrade`)
+- **Installer image** → `docker.io/svrnty/talos-rpi5:<tag>` (for `talosctl upgrade`)
 - **Raw disk image** → Gitea release `metal-arm64.raw.zst` (for eMMC flashing)
 
 Baked-in config:

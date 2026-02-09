@@ -19,6 +19,9 @@ REGISTRY_USERNAME ?= svrnty
 
 TAG ?= $(shell git describe --tags --exact-match 2>/dev/null || echo dev)
 
+# Public image name on Docker Hub (used by talosctl upgrade)
+IMAGE_NAME ?= talos-rpi5
+
 # System extensions baked into the image
 EXTENSIONS ?= ghcr.io/siderolabs/iscsi-tools:v0.1.6 ghcr.io/siderolabs/util-linux-tools:2.40.4
 
@@ -139,8 +142,8 @@ installer:
 .PHONY: release
 release:
 	docker pull $(REGISTRY)/$(REGISTRY_USERNAME)/installer:$(TALOS_TAG) && \
-		docker tag $(REGISTRY)/$(REGISTRY_USERNAME)/installer:$(TALOS_TAG) $(REGISTRY)/$(REGISTRY_USERNAME)/installer:$(TAG) && \
-		docker push $(REGISTRY)/$(REGISTRY_USERNAME)/installer:$(TAG)
+		docker tag $(REGISTRY)/$(REGISTRY_USERNAME)/installer:$(TALOS_TAG) $(REGISTRY)/$(REGISTRY_USERNAME)/$(IMAGE_NAME):$(TAG) && \
+		docker push $(REGISTRY)/$(REGISTRY_USERNAME)/$(IMAGE_NAME):$(TAG)
 
 #
 # Clean
