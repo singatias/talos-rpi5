@@ -69,36 +69,36 @@ jobs:
           cp "$DISK_IMAGE" metal-arm64.raw.zst
           ls -lh metal-arm64.raw.zst
 
-      - name: Create Gitea release
-        uses: actions/forgejo-release@v2
-        with:
-          direction: upload
-          tag: ${{ steps.version.outputs.tag }}
-          title: "Talos CM5 ${{ steps.version.outputs.tag }}"
-          release-notes: |
-            Custom Talos Linux image for Raspberry Pi CM5 (Compute Blade)
-
-            **Talos version**: check Makefile
-            **Kernel**: RPi downstream (CM5/RP1 support)
-            **Extensions**: iscsi-tools, util-linux-tools
-            **Overclock**: 2.6GHz (arm_freq=2600)
-
-            ## Artifacts
-            - `metal-arm64.raw.zst` — Raw disk image for eMMC flashing
-            - `docker.io/svrnty/talos-rpi5:${{ steps.version.outputs.tag }}` — Installer image for `talosctl upgrade`
-
-            ## Usage
-            ```bash
-            # Flash to eMMC
-            ./scripts/flash-emmc.sh metal-arm64.raw.zst
-
-            # Upgrade existing node
-            talosctl upgrade --image docker.io/svrnty/talos-rpi5:${{ steps.version.outputs.tag }}
-            ```
-          release-dir: .
-          release-notes-assistant: none
+      - name: Create Gitea release and upload artifact
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITEA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          GITEA_URL="${GITHUB_SERVER_URL}"
+          REPO="${GITHUB_REPOSITORY}"
+          API="${GITEA_URL}/api/v1"
+
+          # Create release
+          RELEASE_ID=$(curl -sf -X POST \
+            -H "Authorization: token ${GITEA_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"tag_name\": \"${TAG}\",
+              \"name\": \"Talos RPi5 ${TAG}\",
+              \"body\": \"Custom Talos Linux image for Raspberry Pi 5 / CM5 (Compute Blade)\n\n**Talos version**: ${TAG}\n**Kernel**: RPi downstream (CM5/RP1 support)\n**Extensions**: iscsi-tools, util-linux-tools\n**Overclock**: 2.6GHz (arm_freq=2600)\n\n## Artifacts\n- \`metal-arm64.raw.zst\` — Raw disk image for eMMC flashing\n- \`docker.io/svrnty/talos-rpi5:${TAG}\` — Installer image for talosctl upgrade\",
+              \"prerelease\": true
+            }" \
+            "${API}/repos/${REPO}/releases" | jq -r '.id')
+
+          echo "Created release ID: ${RELEASE_ID}"
+
+          # Upload disk image
+          curl -sf -X POST \
+            -H "Authorization: token ${GITEA_TOKEN}" \
+            -F "attachment=@metal-arm64.raw.zst" \
+            "${API}/repos/${REPO}/releases/${RELEASE_ID}/assets?name=metal-arm64.raw.zst"
+
+          echo "Uploaded metal-arm64.raw.zst to release"
 
       - name: Clean up
         if: always()
