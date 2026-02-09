@@ -50,20 +50,27 @@ A weekly scheduled workflow checks for new Talos and RPi kernel releases and cre
 | `REGISTRY_USERNAME` | Docker Hub username (org-level) |
 | `REGISTRY_PASSWORD` | Docker Hub access token (org-level) |
 
-## Runner Setup (ASUS GX10)
+## Runner Setup (Apple Silicon Mac Mini)
 
-The ARM64 build runner needs:
-- Docker + Docker Buildx
-- Gitea `act_runner` registered with labels: `self-hosted`, `linux`, `arm64`
+The build runner needs:
+- Docker Desktop with Buildx (arm64 native)
+- Gitea `act_runner` registered with labels: `self-hosted`, `macOS`, `arm64`
 - Sufficient disk space for kernel builds (~20GB)
 
 ```bash
-# Install act_runner
-curl -sL https://gitea.com/gitea/act_runner/releases/latest/download/act_runner-linux-arm64 -o act_runner
+# Install act_runner via Homebrew
+brew install act_runner
+
+# Or download directly
+curl -sL https://gitea.com/gitea/act_runner/releases/latest/download/act_runner-darwin-arm64 -o act_runner
 chmod +x act_runner
 
 # Register
-./act_runner register --instance <gitea-url> --token <runner-token>
+./act_runner register \
+  --instance https://git.openharbor.io \
+  --token <runner-token> \
+  --name mac-mini \
+  --labels self-hosted,macOS,arm64
 
 # Run as service
 ./act_runner daemon

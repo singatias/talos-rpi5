@@ -14,7 +14,7 @@ on:
 
 jobs:
   check-updates:
-    runs-on: [self-hosted, linux, arm64]
+    runs-on: [self-hosted, macOS, arm64]
     timeout-minutes: 10
 
     steps:

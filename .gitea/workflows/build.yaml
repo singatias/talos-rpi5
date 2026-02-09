@@ -6,6 +6,8 @@
 # Produces:
 #   - Installer container image → Docker Hub (svrnty/talos-rpi5:<tag>)
 #   - Raw disk image → Gitea release (metal-arm64.raw.zst)
+#
+# Runner: Apple Silicon Mac Mini (self-hosted, macOS, arm64)
 
 name: Build Talos CM5 Image
 
@@ -16,21 +18,21 @@ on:
 
 jobs:
   build:
-    runs-on: [self-hosted, linux, arm64]
+    runs-on: [self-hosted, macOS, arm64]
     timeout-minutes: 180
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify Docker is running
+        run: docker info
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        run: docker buildx create --use --name talos-builder --driver docker-container || docker buildx use talos-builder
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+        run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
 
       - name: Extract version tag
         id: version
