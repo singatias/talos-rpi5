@@ -10,8 +10,8 @@
 #   make installer           # Build installer image + raw disk image
 #   make release             # Tag images for release
 
-PKG_VERSION = v1.11.0
-TALOS_VERSION = v1.11.5
+PKG_VERSION = v1.12.0
+TALOS_VERSION = v1.12.3
 SBCOVERLAY_VERSION = main
 
 REGISTRY ?= docker.io
