@@ -47,9 +47,8 @@ A weekly scheduled workflow checks for new Talos and RPi kernel releases and cre
 
 | Secret | Description |
 |--------|-------------|
-| `DOCKERHUB_USERNAME` | Docker Hub username |
-| `DOCKERHUB_TOKEN` | Docker Hub access token |
-| `GITEA_TOKEN` | Gitea API token (for creating releases and issues) |
+| `REGISTRY_USERNAME` | Docker Hub username (org-level) |
+| `REGISTRY_PASSWORD` | Docker Hub access token (org-level) |
 
 ## Runner Setup (ASUS GX10)
 
