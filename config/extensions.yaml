@@ -1,0 +1,15 @@
+# System extensions included in the Talos CM5 image
+#
+# These are passed to the imager via --system-extension-image flags.
+# Update the EXTENSIONS variable in Makefile when changing this list.
+#
+# Available extensions: https://github.com/siderolabs/extensions
+
+extensions:
+  # iSCSI initiator for shared storage (Longhorn, democratic-csi)
+  - name: iscsi-tools
+    image: ghcr.io/siderolabs/iscsi-tools:v0.1.6
+
+  # util-linux tools (lsblk, etc.) for storage debugging
+  - name: util-linux-tools
+    image: ghcr.io/siderolabs/util-linux-tools:2.40.4

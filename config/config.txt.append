@@ -1,0 +1,4 @@
+# CM5 Overclock — 2.6GHz stable on Compute Blade with heatsink
+arm_freq=2600
+over_voltage_delta=50000
+arm_boost=1

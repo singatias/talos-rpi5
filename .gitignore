@@ -1,0 +1,4 @@
+checkouts/
+_out/
+*.raw
+*.raw.zst
