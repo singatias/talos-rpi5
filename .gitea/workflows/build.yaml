@@ -30,7 +30,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          for pkg in make gnu-sed crane; do
+          for pkg in make gnu-sed crane cosign syft; do
             brew list --formula "$pkg" &>/dev/null || brew install "$pkg"
           done
           gmake --version | head -1
@@ -63,11 +63,15 @@ jobs:
       - name: Build installer and disk image
         run: gmake installer
 
-      - name: Tag release images
-        run: gmake release TAG=${{ steps.version.outputs.tag }}
+      - name: Attest installer image
+        env:
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: gmake attest COSIGN_KEY=<(echo "${{ secrets.COSIGN_PRIVATE_KEY }}")
 
-      - name: Run Docker Scout CVE scan
-        run: gmake scout
+      - name: Tag release images
+        env:
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: gmake release TAG=${{ steps.version.outputs.tag }} COSIGN_KEY=<(echo "${{ secrets.COSIGN_PRIVATE_KEY }}")
 
       - name: Compress disk image
         run: |
@@ -91,11 +95,6 @@ jobs:
           REPO="${GITHUB_REPOSITORY}"
           API="${GITEA_URL}/api/v1"
 
-          SCOUT_SECTION=""
-          if [ -f _out/scout-report.md ]; then
-            SCOUT_SECTION=$(cat _out/scout-report.md)
-          fi
-
           # Extract component versions from tag (format: v1.12.3-k6.12.47-1)
           TALOS_VER=$(echo "$TAG" | sed -E 's/^(v[0-9]+\.[0-9]+\.[0-9]+)-.*/\1/')
           KERNEL_VER=$(echo "$TAG" | sed -E 's/.*-k([0-9]+\.[0-9]+\.[0-9]+)-.*/\1/')
@@ -109,10 +108,7 @@ jobs:
 
           ## Artifacts
           - \`metal-arm64.raw.zst\` — Raw disk image for eMMC flashing
-          - \`docker.io/svrnty/talos-rpi5:${TAG}\` — Installer image for talosctl upgrade
-
-          ## Security Scan
-          ${SCOUT_SECTION}"
+          - \`docker.io/svrnty/talos-rpi5:${TAG}\` — Installer image for talosctl upgrade"
 
           # Strip leading whitespace from heredoc-style indentation
           RELEASE_BODY=$(echo "$RELEASE_BODY" | sed 's/^          //')

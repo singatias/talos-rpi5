@@ -74,7 +74,7 @@ help:
 	@echo "  overlay    — Build SBC overlay (U-Boot, firmware, DTBs)"
 	@echo "  installer  — Build Talos installer image + raw disk image"
 	@echo "  release    — Tag and push release images"
-	@echo "  scout      — Run Docker Scout CVE scan on all images"
+	@echo "  attest     — Attach SBOM attestation to installer image"
 	@echo "  clean      — Remove checkouts and build artifacts"
 	@echo ""
 	@echo "Variables:"
@@ -189,44 +189,31 @@ installer:
 			$(IMAGER_COMMON_FLAGS)
 
 #
+# Attestation — attach SBOM to crane-pushed images
+#
+COSIGN_KEY ?= cosign.key
+
+.PHONY: attest
+attest:
+	syft $(INSTALLER_IMAGE):$(TALOS_TAG) \
+		--platform linux/arm64 \
+		-o spdx-json=_out/installer-sbom.spdx.json
+	cosign attest --predicate _out/installer-sbom.spdx.json \
+		--type spdxjson \
+		--key $(COSIGN_KEY) \
+		$(INSTALLER_IMAGE):$(TALOS_TAG)
+
+#
 # Release — tag images with the Git tag for stable references
 #
 .PHONY: release
 release:
-	docker pull $(INSTALLER_IMAGE):$(TALOS_TAG) && \
-		docker tag $(INSTALLER_IMAGE):$(TALOS_TAG) $(REGISTRY)/$(REGISTRY_USERNAME)/$(IMAGE_NAME):$(TAG) && \
-		docker push $(REGISTRY)/$(REGISTRY_USERNAME)/$(IMAGE_NAME):$(TAG)
-
-#
-# Scout — Docker Scout CVE scan on all pushed images
-#
-SCOUT_REPORT := _out/scout-report.md
-SCOUT_IMAGES := \
-	$(KERNEL_IMAGE):$(PKGS_TAG) \
-	$(OVERLAY_IMAGE):$(SBCOVERLAY_TAG) \
-	$(IMAGER_IMAGE):$(TALOS_TAG) \
-	$(INSTALLER_IMAGE):base-$(TALOS_TAG) \
-	$(INSTALLER_IMAGE):$(TALOS_TAG)
-
-.PHONY: scout
-scout:
-	@mkdir -p _out
-	@if ! docker scout version >/dev/null 2>&1; then \
-		echo "Docker Scout not available -- skipping CVE scan." > $(SCOUT_REPORT); \
-		exit 0; \
-	fi
-	@echo "# Docker Scout CVE Summary" > $(SCOUT_REPORT)
-	@echo "" >> $(SCOUT_REPORT)
-	@for image in $(SCOUT_IMAGES); do \
-		echo "Scanning $$image ..."; \
-		echo "### $${image##*/}" >> $(SCOUT_REPORT); \
-		echo '```' >> $(SCOUT_REPORT); \
-		docker scout quickview "$$image" --platform linux/arm64 2>&1 >> $(SCOUT_REPORT) || \
-			echo "Scout scan failed for $$image" >> $(SCOUT_REPORT); \
-		echo '```' >> $(SCOUT_REPORT); \
-		echo "" >> $(SCOUT_REPORT); \
-	done
-	@echo "Scout report written to $(SCOUT_REPORT)"
+	crane copy $(INSTALLER_IMAGE):$(TALOS_TAG) \
+		$(REGISTRY)/$(REGISTRY_USERNAME)/$(IMAGE_NAME):$(TAG)
+	cosign attest --predicate _out/installer-sbom.spdx.json \
+		--type spdxjson \
+		--key $(COSIGN_KEY) \
+		$(REGISTRY)/$(REGISTRY_USERNAME)/$(IMAGE_NAME):$(TAG)
 
 #
 # Clean
