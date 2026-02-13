@@ -10,12 +10,12 @@ The official Talos Image Factory does not support CM5 — the mainline kernel la
 
 ## Current versions
 
-| Component | Version | |
-|-----------|---------|---|
-| Talos Linux | `v1.12.3` | [![](https://img.shields.io/docker/v/svrnty/talos-rpi5?sort=semver&label=latest&logo=docker&arch=arm64)](https://hub.docker.com/r/svrnty/talos-rpi5) |
-| RPi Kernel | `6.12.47` | arm64 only |
-| iscsi-tools | `v0.1.6` | |
-| util-linux-tools | `2.40.4` | |
+| Component | Version |
+|-----------|---------|
+| Talos Linux | [![](https://img.shields.io/docker/v/svrnty/talos-rpi5?sort=semver&label=talos-rpi5&logo=docker&arch=arm64)](https://hub.docker.com/r/svrnty/talos-rpi5) |
+| RPi Kernel | [![](https://img.shields.io/badge/kernel-6.12.47-blue?logo=linux)](https://hub.docker.com/r/svrnty/talos-rpi5) |
+| iscsi-tools | [![](https://img.shields.io/badge/iscsi--tools-v0.1.6-blue?logo=docker)](https://github.com/siderolabs/extensions/pkgs/container/iscsi-tools) |
+| util-linux-tools | [![](https://img.shields.io/badge/util--linux--tools-2.40.4-blue?logo=docker)](https://github.com/siderolabs/extensions/pkgs/container/util-linux-tools) |
 
 ## Image tags
 
