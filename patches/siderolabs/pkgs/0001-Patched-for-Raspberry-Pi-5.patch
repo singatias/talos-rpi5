@@ -23,9 +23,9 @@ index 8799e13..209c74c 100644
 -  linux_sha256: ddf2ea0d4439e1d57136be3623102af9458f601f5b1cb77e83246e88aea09d0e
 -  linux_sha512: f16f28c395374099ccf21d9df654a31746ed3f09376f7f9eca172579787b7b493d3878cb0a44348c2846bba93f7950f04b0e45235152860e4789fdd2aa9711cb
 +  # renovate: datasource=git-tags extractVersion=^v(?<version>.*)$ depName=https://github.com/raspberrypi/linux.git
-+  linux_version: stable_20250428
-+  linux_sha256: c95906cfbc7808de5860c6d86537bea22e3501f600a5209de59a86cb436886f6
-+  linux_sha512: 0ed5d490c491e590b5980dccf6fcac0dd3c47accbfacd40d91507c12801cff34fa6a1c68991c8a6c57bb259c909121414766f35a0b11c4bd5d62c3e11d710839
++  linux_version: stable_20250916
++  linux_sha256: 4639fe79697970b71cf708234b71d855a58ce5e28c377a4f7cf6ecbbe40647f3
++  linux_sha512: 5818d7ac495dc31a27c9b967bf146d291ab6fd06b99e819d9c685d5413472593cd99a4d7ce10218c45d7fb631adceed8e20806b1f2f9909277ce0de7ad204565
  
    # renovate: datasource=git-tags extractVersion=^libaio-(?<version>.*)$ depName=https://pagure.io/libaio.git
    libaio_version: 0.3.113
@@ -37,7 +37,7 @@ index 65b3647..7ba70c0 100644
  #
  # Automatically generated file; DO NOT EDIT.
 -# Linux/arm64 6.17.7 Kernel Configuration
-+# Linux/arm64 6.12.25 Kernel Configuration
++# Linux/arm64 6.12.47 Kernel Configuration
  #
  CONFIG_CC_VERSION_TEXT="gcc (GCC) 15.2.0"
  CONFIG_CC_IS_GCC=y
