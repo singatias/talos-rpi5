@@ -112,8 +112,10 @@ if [ -f "$README" ]; then
 
   echo "Updating README: talos v${OLD_TALOS} → v${TALOS_VER}, kernel ${OLD_KERNEL} → ${KERNEL_VER}, tag ${OLD_TAG} → ${NEW_TAG}" >&2
 
-  sed -i "s/talos-v${OLD_TALOS}/talos-v${TALOS_VER}/g" "$README"
+  sed -i "s/talos-v${OLD_TALOS}/talos-${TALOS_VER}/g" "$README"
   sed -i "s/kernel-${OLD_KERNEL}/kernel-${KERNEL_VER}/g" "$README"
+  sed -i "s/\`v${OLD_TALOS}\`/\`${TALOS_VER}\`/g" "$README"
+  sed -i "s/\`k${OLD_KERNEL}\`/\`k${KERNEL_VER}\`/g" "$README"
   if [ -n "$OLD_TAG" ]; then
     sed -i "s/${OLD_TAG}/${NEW_TAG}/g" "$README"
   fi
