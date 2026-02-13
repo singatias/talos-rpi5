@@ -2,9 +2,9 @@
 
 Custom Talos Linux images for Raspberry Pi 5 / CM5 on Compute Blade hardware.
 
-[![Docker Hub](https://img.shields.io/docker/v/svrnty/talos-rpi5?sort=semver&label=talos-rpi5&logo=docker&arch=arm64)](https://hub.docker.com/r/svrnty/talos-rpi5)
-[![Docker Pulls](https://img.shields.io/docker/pulls/svrnty/talos-rpi5?logo=docker)](https://hub.docker.com/r/svrnty/talos-rpi5)
-[![Docker Image Size](https://img.shields.io/docker/image-size/svrnty/talos-rpi5?sort=semver&logo=docker&arch=arm64)](https://hub.docker.com/r/svrnty/talos-rpi5)
+<a href="https://hub.docker.com/r/svrnty/talos-rpi5" target="_blank"><img src="https://img.shields.io/docker/v/svrnty/talos-rpi5?sort=semver&label=talos-rpi5&logo=docker&arch=arm64" alt="Docker Hub"></a>
+<a href="https://hub.docker.com/r/svrnty/talos-rpi5" target="_blank"><img src="https://img.shields.io/docker/pulls/svrnty/talos-rpi5?logo=docker" alt="Docker Pulls"></a>
+<a href="https://hub.docker.com/r/svrnty/talos-rpi5" target="_blank"><img src="https://img.shields.io/docker/image-size/svrnty/talos-rpi5?sort=semver&logo=docker&arch=arm64" alt="Docker Image Size"></a>
 
 The official Talos Image Factory does not support CM5 — the mainline kernel lacks CM5 device trees and RP1 driver support. This builder uses the RPi downstream kernel (via [talos-rpi5/talos-builder](https://github.com/talos-rpi5/talos-builder) patches) to produce working CM5 images with our extensions and overclock config.
 
@@ -12,14 +12,14 @@ The official Talos Image Factory does not support CM5 — the mainline kernel la
 
 | Component | Version |
 |-----------|---------|
-| Talos Linux | [![](https://img.shields.io/docker/v/svrnty/talos-rpi5?sort=semver&label=talos-rpi5&logo=docker&arch=arm64)](https://hub.docker.com/r/svrnty/talos-rpi5) |
-| RPi Kernel | [![](https://img.shields.io/badge/kernel-6.12.47-blue?logo=linux)](https://hub.docker.com/r/svrnty/talos-rpi5) |
-| iscsi-tools | [![](https://img.shields.io/badge/iscsi--tools-v0.1.6-blue?logo=docker)](https://github.com/siderolabs/extensions/pkgs/container/iscsi-tools) |
-| util-linux-tools | [![](https://img.shields.io/badge/util--linux--tools-2.40.4-blue?logo=docker)](https://github.com/siderolabs/extensions/pkgs/container/util-linux-tools) |
+| Talos Linux | <a href="https://hub.docker.com/r/svrnty/talos-rpi5" target="_blank"><img src="https://img.shields.io/docker/v/svrnty/talos-rpi5?sort=semver&label=talos-rpi5&logo=docker&arch=arm64" alt="Talos version"></a> |
+| RPi Kernel | <a href="https://hub.docker.com/r/svrnty/talos-rpi5" target="_blank"><img src="https://img.shields.io/badge/kernel-6.12.47-blue?logo=linux" alt="Kernel version"></a> |
+| iscsi-tools | <a href="https://github.com/siderolabs/extensions/pkgs/container/iscsi-tools" target="_blank"><img src="https://img.shields.io/badge/iscsi--tools-v0.1.6-blue?logo=docker" alt="iscsi-tools version"></a> |
+| util-linux-tools | <a href="https://github.com/siderolabs/extensions/pkgs/container/util-linux-tools" target="_blank"><img src="https://img.shields.io/badge/util--linux--tools-2.40.4-blue?logo=docker" alt="util-linux-tools version"></a> |
 
 ## Image tags
 
-Release images are published to [`docker.io/svrnty/talos-rpi5`](https://hub.docker.com/r/svrnty/talos-rpi5) with the format:
+Release images are published to <a href="https://hub.docker.com/r/svrnty/talos-rpi5" target="_blank"><code>docker.io/svrnty/talos-rpi5</code></a> with the format:
 
 ```
 v<talos>-k<kernel>-<revision>
