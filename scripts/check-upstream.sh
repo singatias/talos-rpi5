@@ -1,54 +1,57 @@
 #!/usr/bin/env bash
 # Check for upstream Talos and RPi kernel updates
 #
-# Compares current versions in Makefile against the latest GitHub releases.
-# Outputs GitHub Actions-compatible variables for use in CI workflows.
+# Compares current versions (from Makefile + pkgs patch) against the
+# latest GitHub releases/tags. Outputs GitHub Actions-compatible variables.
 #
 # Usage:
-#   ./scripts/check-upstream.sh           # Print results
+#   ./scripts/check-upstream.sh           # Print results to stdout/stderr
 #   ./scripts/check-upstream.sh >> "$GITHUB_OUTPUT"  # For CI
 
 set -euo pipefail
 
 MAKEFILE="${MAKEFILE:-Makefile}"
+PATCH_FILE="${PATCH_FILE:-patches/siderolabs/pkgs/0001-Patched-for-Raspberry-Pi-5.patch}"
 
-# Extract current versions from Makefile
-CURRENT_TALOS=$(grep '^TALOS_VERSION' "$MAKEFILE" | head -1 | awk '{print $NF}')
-CURRENT_PKG=$(grep '^PKG_VERSION' "$MAKEFILE" | head -1 | awk '{print $NF}')
+# ── Current versions ────────────────────────────────────────────────
+CURRENT_TALOS=$(grep '^TALOS_VERSION' "$MAKEFILE" | awk '{print $NF}')
+CURRENT_RPI_TAG=$(grep '+  linux_version:' "$PATCH_FILE" | awk '{print $NF}')
 
-echo "Current Talos version: $CURRENT_TALOS"
-echo "Current PKG version:   $CURRENT_PKG"
+echo "Current Talos version: $CURRENT_TALOS" >&2
+echo "Current RPi kernel tag: $CURRENT_RPI_TAG" >&2
 
-# Check latest Talos stable release
+# ── Latest versions from GitHub API ─────────────────────────────────
 LATEST_TALOS=$(curl -sf "https://api.github.com/repos/siderolabs/talos/releases/latest" \
-  | grep '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+  | jq -r '.tag_name')
 
-echo "Latest Talos release:  $LATEST_TALOS"
+LATEST_RPI_TAG=$(curl -sf "https://api.github.com/repos/raspberrypi/linux/tags?per_page=20" \
+  | jq -r '[.[] | select(.name | startswith("stable_"))][0].name')
 
-# Check latest RPi kernel stable tag (format: stable_YYYYMMDD)
-LATEST_RPI_KERNEL=$(curl -sf "https://api.github.com/repos/raspberrypi/linux/tags?per_page=10" \
-  | grep '"name"' | grep 'stable_' | head -1 | sed -E 's/.*"name": *"([^"]+)".*/\1/')
+echo "Latest Talos release:  $LATEST_TALOS" >&2
+echo "Latest RPi kernel tag: $LATEST_RPI_TAG" >&2
 
-echo "Latest RPi kernel tag: $LATEST_RPI_KERNEL"
-
-# Output for GitHub Actions
-echo "talos_current=$CURRENT_TALOS"
-echo "talos_latest=$LATEST_TALOS"
+# ── Determine what needs updating ───────────────────────────────────
+TALOS_UPDATE=false
+RPI_UPDATE=false
 
 if [ "$CURRENT_TALOS" != "$LATEST_TALOS" ]; then
-  echo "talos_update=true"
+  TALOS_UPDATE=true
   echo ">> Talos update available: $CURRENT_TALOS -> $LATEST_TALOS" >&2
 else
-  echo "talos_update=false"
   echo ">> Talos is up to date" >&2
 fi
 
-# For RPi kernel, we output what we found — the actual version tracking
-# depends on the pkgs patch content which references a specific kernel tag
-echo "rpi_current=check-patch"
-echo "rpi_latest=$LATEST_RPI_KERNEL"
+if [ "$CURRENT_RPI_TAG" != "$LATEST_RPI_TAG" ]; then
+  RPI_UPDATE=true
+  echo ">> RPi kernel update available: $CURRENT_RPI_TAG -> $LATEST_RPI_TAG" >&2
+else
+  echo ">> RPi kernel is up to date" >&2
+fi
 
-# We always flag RPi kernel for review since we can't easily parse the
-# patch to extract the exact pinned version
-echo "rpi_update=true"
-echo ">> RPi kernel latest stable: $LATEST_RPI_KERNEL (review patch manually)" >&2
+# ── Output for GitHub Actions ───────────────────────────────────────
+echo "talos_current=$CURRENT_TALOS"
+echo "talos_latest=$LATEST_TALOS"
+echo "talos_update=$TALOS_UPDATE"
+echo "rpi_current=$CURRENT_RPI_TAG"
+echo "rpi_latest=$LATEST_RPI_TAG"
+echo "rpi_update=$RPI_UPDATE"

@@ -45,7 +45,7 @@ PATCHES_DIRECTORY := $(PWD)/patches
 
 PKGS_TAG = $(shell cd $(CHECKOUTS_DIRECTORY)/pkgs && git describe --tag --always --dirty --match v[0-9]\*)
 TALOS_TAG = $(shell cd $(CHECKOUTS_DIRECTORY)/talos && git describe --tag --always --dirty --match v[0-9]\*)
-SBCOVERLAY_TAG = $(shell cd $(CHECKOUTS_DIRECTORY)/sbc-raspberrypi5 && git describe --tag --always --dirty)-$(PKGS_TAG)
+SBCOVERLAY_TAG = $(shell cd $(CHECKOUTS_DIRECTORY)/sbc-raspberrypi5 && git describe --tag --always)-$(PKGS_TAG)
 
 # Build the --system-extension-image flags from the EXTENSIONS list
 EXTENSION_FLAGS = $(foreach ext,$(EXTENSIONS),--system-extension-image=$(ext))

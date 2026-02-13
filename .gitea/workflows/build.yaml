@@ -96,10 +96,14 @@ jobs:
             SCOUT_SECTION=$(cat _out/scout-report.md)
           fi
 
+          # Extract component versions from tag (format: v1.12.3-k6.12.47-1)
+          TALOS_VER=$(echo "$TAG" | sed -E 's/^(v[0-9]+\.[0-9]+\.[0-9]+)-.*/\1/')
+          KERNEL_VER=$(echo "$TAG" | sed -E 's/.*-k([0-9]+\.[0-9]+\.[0-9]+)-.*/\1/')
+
           RELEASE_BODY="Custom Talos Linux image for Raspberry Pi 5 / CM5 (Compute Blade)
 
-          **Talos version**: ${TAG}
-          **Kernel**: RPi downstream (CM5/RP1 support)
+          **Talos**: ${TALOS_VER}
+          **Kernel**: RPi downstream ${KERNEL_VER} (CM5/RP1 support)
           **Extensions**: iscsi-tools, util-linux-tools
           **Overclock**: 2.6GHz (arm_freq=2600)
 

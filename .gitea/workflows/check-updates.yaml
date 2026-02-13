@@ -1,25 +1,32 @@
-# Check for upstream Talos and RPi kernel updates
+# Daily upstream update check with auto-build
 #
-# Runs on a schedule and creates a Gitea issue when new versions are found.
-# This is notification-only — builds require manual tag push after verifying
-# patches still apply.
+# Detects new Talos OS and RPi kernel versions, applies updates,
+# smoke-tests patches, and pushes a release tag (which triggers build.yaml).
+# Falls back to creating a Gitea issue if patches fail to apply.
 
 name: Check Upstream Updates
 
 on:
   schedule:
-    # Run weekly on Monday at 08:00 UTC
-    - cron: '0 8 * * 1'
+    - cron: '0 8 * * *'    # Daily at 08:00 UTC
   workflow_dispatch:
 
 jobs:
-  check-updates:
+  check-and-build:
     runs-on: [self-hosted, macos]
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # Need full history for tag-based build numbering
+
+      - name: Install dependencies
+        run: |
+          for pkg in make gnu-sed crane jq; do
+            brew list --formula "$pkg" &>/dev/null || brew install "$pkg"
+          done
 
       - name: Check for upstream updates
         id: check
@@ -27,95 +34,83 @@ jobs:
           chmod +x scripts/check-upstream.sh
           scripts/check-upstream.sh >> "$GITHUB_OUTPUT"
 
-      - name: Create issue for Talos update
-        if: steps.check.outputs.talos_update == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const currentVersion = '${{ steps.check.outputs.talos_current }}';
-            const latestVersion = '${{ steps.check.outputs.talos_latest }}';
-            const title = `Talos update available: ${currentVersion} → ${latestVersion}`;
+      - name: Run auto-update
+        if: steps.check.outputs.talos_update == 'true' || steps.check.outputs.rpi_update == 'true'
+        id: update
+        env:
+          TALOS_UPDATE: ${{ steps.check.outputs.talos_update }}
+          RPI_UPDATE: ${{ steps.check.outputs.rpi_update }}
+          LATEST_TALOS: ${{ steps.check.outputs.talos_latest }}
+          LATEST_RPI_TAG: ${{ steps.check.outputs.rpi_latest }}
+        run: |
+          chmod +x scripts/auto-update.sh
+          scripts/auto-update.sh >> "$GITHUB_OUTPUT"
 
-            // Check if an open issue already exists
-            const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: 'upstream-update',
-            });
+      - name: Commit and tag
+        if: steps.update.outputs.patch_failed != 'true' && steps.update.outputs.new_tag != ''
+        env:
+          NEW_TAG: ${{ steps.update.outputs.new_tag }}
+        run: |
+          git config user.name "Gitea Actions"
+          git config user.email "actions@openharbor.io"
+          git add -A
+          git commit -m "Bump upstream: ${NEW_TAG}"
+          git tag "$NEW_TAG"
+          git push origin main --tags
 
-            const existing = issues.data.find(i => i.title.includes('Talos update'));
-            if (existing) {
-              console.log(`Issue already exists: #${existing.number}`);
-              return;
-            }
+      - name: Create issue on patch failure
+        if: steps.update.outputs.patch_failed == 'true'
+        env:
+          GITEA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TALOS_CURRENT: ${{ steps.check.outputs.talos_current }}
+          TALOS_LATEST: ${{ steps.check.outputs.talos_latest }}
+          TALOS_UPDATE: ${{ steps.check.outputs.talos_update }}
+          RPI_CURRENT: ${{ steps.check.outputs.rpi_current }}
+          RPI_LATEST: ${{ steps.check.outputs.rpi_latest }}
+          RPI_UPDATE: ${{ steps.check.outputs.rpi_update }}
+        run: |
+          GITEA_URL="${GITHUB_SERVER_URL}"
+          REPO="${GITHUB_REPOSITORY}"
+          API="${GITEA_URL}/api/v1"
 
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: title,
-              body: [
-                `## Talos Update Available`,
-                ``,
-                `| | Version |`,
-                `|---|---|`,
-                `| Current | \`${currentVersion}\` |`,
-                `| Latest  | \`${latestVersion}\` |`,
-                ``,
-                `### Steps`,
-                `1. Update \`TALOS_VERSION\` in \`Makefile\``,
-                `2. Verify patches still apply: \`make checkouts patches\``,
-                `3. If patches fail, port them to the new version`,
-                `4. Push a version tag to trigger the build pipeline`,
-                ``,
-                `### Links`,
-                `- [Talos Release Notes](https://github.com/siderolabs/talos/releases/tag/${latestVersion})`,
-              ].join('\n'),
-              labels: ['upstream-update', 'talos'],
-            });
+          BODY="## Upstream update requires manual patch porting
 
-      - name: Create issue for RPi kernel update
-        if: steps.check.outputs.rpi_update == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const currentVersion = '${{ steps.check.outputs.rpi_current }}';
-            const latestVersion = '${{ steps.check.outputs.rpi_latest }}';
-            const title = `RPi kernel update available: ${currentVersion} → ${latestVersion}`;
+          Automated patch application failed. Manual intervention needed.
 
-            const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: 'upstream-update',
-            });
+          | Component | Current | Latest | Update? |
+          |-----------|---------|--------|---------|
+          | Talos     | \`${TALOS_CURRENT}\` | \`${TALOS_LATEST}\` | ${TALOS_UPDATE} |
+          | RPi kernel | \`${RPI_CURRENT}\` | \`${RPI_LATEST}\` | ${RPI_UPDATE} |
 
-            const existing = issues.data.find(i => i.title.includes('RPi kernel update'));
-            if (existing) {
-              console.log(`Issue already exists: #${existing.number}`);
-              return;
-            }
+          ### Steps
+          1. Check out this repo and run \`scripts/auto-update.sh\` to see what fails
+          2. Port patches to the new upstream version
+          3. Verify: \`gmake checkouts patches && gmake checkouts-clean\`
+          4. Push changes — the next scheduled run will pick them up
 
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: title,
-              body: [
-                `## RPi Kernel Update Available`,
-                ``,
-                `| | Version |`,
-                `|---|---|`,
-                `| Current (in pkgs patch) | \`${currentVersion}\` |`,
-                `| Latest stable           | \`${latestVersion}\` |`,
-                ``,
-                `### Steps`,
-                `1. Update the kernel version in the pkgs patch`,
-                `2. Verify the patch still applies: \`make checkouts patches\``,
-                `3. Test build: \`make kernel\``,
-                `4. Push a version tag to trigger the full build pipeline`,
-                ``,
-                `### Links`,
-                `- [RPi Linux Releases](https://github.com/raspberrypi/linux/tags)`,
-              ].join('\n'),
-              labels: ['upstream-update', 'kernel'],
-            });
+          ### Links
+          - [Talos Releases](https://github.com/siderolabs/talos/releases)
+          - [RPi Linux Tags](https://github.com/raspberrypi/linux/tags)"
+
+          # Strip leading whitespace from heredoc-style indentation
+          BODY=$(echo "$BODY" | sed 's/^          //')
+          BODY_JSON=$(jq -Rs '.' <<< "$BODY")
+
+          # Check for existing open issue to avoid duplicates
+          EXISTING=$(curl -sf \
+            -H "Authorization: token ${GITEA_TOKEN}" \
+            "${API}/repos/${REPO}/issues?state=open&type=issues&labels=upstream-update" \
+            | jq -r '[.[] | select(.title | contains("manual patch"))][0].id // empty')
+
+          if [ -n "$EXISTING" ]; then
+            echo "Issue already exists (id: $EXISTING), skipping creation"
+            exit 0
+          fi
+
+          curl -sf -X POST \
+            -H "Authorization: token ${GITEA_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"title\":\"Upstream update requires manual patch porting\",\"body\":${BODY_JSON},\"labels\":[\"upstream-update\"]}" \
+            "${API}/repos/${REPO}/issues"
+
+          echo "Created issue for manual patch porting"
