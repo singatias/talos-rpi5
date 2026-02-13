@@ -13,7 +13,7 @@ The official Talos Image Factory does not support CM5 — the mainline kernel la
 | Component | Version |
 |-----------|---------|
 | Talos Linux | <a href="https://github.com/siderolabs/talos/releases/tag/v1.12.3" target="_blank"><img src="https://img.shields.io/badge/talos-v1.12.3-blue?logo=kubernetes&logoColor=white" alt="Talos version"></a> |
-| RPi Kernel | <a href="https://github.com/raspberrypi/linux/releases/tag/stable_20250328" target="_blank"><img src="https://img.shields.io/badge/kernel-6.12.47-blue?logo=linux&logoColor=white" alt="Kernel version"></a> |
+| RPi Kernel | <a href="https://github.com/raspberrypi/linux" target="_blank"><img src="https://img.shields.io/badge/kernel-6.12.47-blue?logo=linux&logoColor=white" alt="Kernel version"></a> |
 | iscsi-tools | <a href="https://github.com/siderolabs/extensions/pkgs/container/iscsi-tools" target="_blank"><img src="https://img.shields.io/badge/iscsi--tools-v0.1.6-blue?logo=docker" alt="iscsi-tools version"></a> |
 | util-linux-tools | <a href="https://github.com/siderolabs/extensions/pkgs/container/util-linux-tools" target="_blank"><img src="https://img.shields.io/badge/util--linux--tools-2.40.4-blue?logo=docker" alt="util-linux-tools version"></a> |
 
