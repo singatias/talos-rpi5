@@ -8,16 +8,26 @@
 #   make kernel              # Build RPi kernel (~15-30 min on ARM64)
 #   make overlay             # Build U-Boot + firmware + DTBs
 #   make installer           # Build installer image + raw disk image
-#   make release             # Tag images for release
+#   make release             # Tag and push release images
+#   make clean               # Remove checkouts and build artifacts
 
 PKG_VERSION = v1.12.0
 TALOS_VERSION = v1.12.3
 SBCOVERLAY_VERSION = main
 
+# Prefer GNU coreutils (macOS: brew install gnu-sed coreutils)
+export PATH := /opt/homebrew/opt/gnu-sed/libexec/gnubin:$(PATH)
+
 REGISTRY ?= docker.io
 REGISTRY_USERNAME ?= svrnty
 
 TAG ?= $(shell git describe --tags --exact-match 2>/dev/null || echo dev)
+
+# Docker Hub image names (project-specific)
+KERNEL_IMAGE = $(REGISTRY)/$(REGISTRY_USERNAME)/talos-rpi5-kernel
+OVERLAY_IMAGE = $(REGISTRY)/$(REGISTRY_USERNAME)/talos-rpi5-overlay
+IMAGER_IMAGE = $(REGISTRY)/$(REGISTRY_USERNAME)/talos-rpi5-imager
+INSTALLER_IMAGE = $(REGISTRY)/$(REGISTRY_USERNAME)/talos-rpi5-installer
 
 # Public image name on Docker Hub (used by talosctl upgrade)
 IMAGE_NAME ?= talos-rpi5
@@ -40,6 +50,13 @@ SBCOVERLAY_TAG = $(shell cd $(CHECKOUTS_DIRECTORY)/sbc-raspberrypi5 && git descr
 # Build the --system-extension-image flags from the EXTENSIONS list
 EXTENSION_FLAGS = $(foreach ext,$(EXTENSIONS),--system-extension-image=$(ext))
 
+# Common imager flags for overlay and extensions
+IMAGER_COMMON_FLAGS = \
+	--overlay-name="rpi5" \
+	--overlay-image="$(OVERLAY_IMAGE):$(SBCOVERLAY_TAG)" \
+	--overlay-option="configTxtAppend=$$(cat $(PWD)/config/config.txt.append)" \
+	$(EXTENSION_FLAGS)
+
 #
 # Help
 #
@@ -54,6 +71,7 @@ help:
 	@echo "  overlay    — Build SBC overlay (U-Boot, firmware, DTBs)"
 	@echo "  installer  — Build Talos installer image + raw disk image"
 	@echo "  release    — Tag and push release images"
+	@echo "  scout      — Run Docker Scout CVE scan on all images"
 	@echo "  clean      — Remove checkouts and build artifacts"
 	@echo ""
 	@echo "Variables:"
@@ -61,6 +79,12 @@ help:
 	@echo "  PKG_VERSION         = $(PKG_VERSION)"
 	@echo "  REGISTRY            = $(REGISTRY)"
 	@echo "  REGISTRY_USERNAME   = $(REGISTRY_USERNAME)"
+	@echo ""
+	@echo "Images:"
+	@echo "  KERNEL_IMAGE        = $(KERNEL_IMAGE)"
+	@echo "  OVERLAY_IMAGE       = $(OVERLAY_IMAGE)"
+	@echo "  IMAGER_IMAGE        = $(IMAGER_IMAGE)"
+	@echo "  INSTALLER_IMAGE     = $(INSTALLER_IMAGE)"
 
 #
 # Checkouts
@@ -91,63 +115,116 @@ patches-talos:
 patches: patches-pkgs patches-talos
 
 #
-# Kernel
+# Kernel — build and push the RPi downstream kernel
 #
 .PHONY: kernel
 kernel:
 	cd "$(CHECKOUTS_DIRECTORY)/pkgs" && \
-		$(MAKE) \
-			REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) PUSH=true \
-			PLATFORM=linux/arm64 \
-			kernel
+		$(MAKE) docker-kernel \
+			TARGET_ARGS="--tag=$(KERNEL_IMAGE):$(PKGS_TAG) --push=true" \
+			PLATFORM=linux/arm64
 
 #
-# Overlay
+# Overlay — build U-Boot + firmware + DTBs
+#
+# The overlay's pkg.yaml references the kernel as PKGS_PREFIX/kernel:PKGS.
+# We rewrite it to point to our project-specific kernel image name.
 #
 .PHONY: overlay
 overlay:
 	@echo "SBCOVERLAY_TAG = $(SBCOVERLAY_TAG)"
+	@sed -i.bak 's|{{ .BUILD_ARG_PKGS_PREFIX }}/kernel:{{ .BUILD_ARG_PKGS }}|$(KERNEL_IMAGE):$(PKGS_TAG)|' \
+		"$(CHECKOUTS_DIRECTORY)/sbc-raspberrypi5/internal/base/pkg.yaml" && \
+		rm -f "$(CHECKOUTS_DIRECTORY)/sbc-raspberrypi5/internal/base/pkg.yaml.bak"
 	cd "$(CHECKOUTS_DIRECTORY)/sbc-raspberrypi5" && \
-		$(MAKE) \
-			REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) IMAGE_TAG=$(SBCOVERLAY_TAG) PUSH=true \
-			PKGS_PREFIX=$(REGISTRY)/$(REGISTRY_USERNAME) PKGS=$(PKGS_TAG) \
-			INSTALLER_ARCH=arm64 PLATFORM=linux/arm64 \
-			sbc-raspberrypi5
+		$(MAKE) docker-sbc-raspberrypi5 \
+			TARGET_ARGS="--tag=$(OVERLAY_IMAGE):$(SBCOVERLAY_TAG) --push=true" \
+			INSTALLER_ARCH=arm64 PLATFORM=linux/arm64
 
 #
 # Installer / Disk Image
+#
+# Builds the imager, installer-base, and installer images step by step,
+# pushing each to our project-specific Docker Hub repos.
 #
 .PHONY: installer
 installer:
 	cd "$(CHECKOUTS_DIRECTORY)/talos" && \
 		$(MAKE) \
-			REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) PUSH=true \
-			PKG_KERNEL=$(REGISTRY)/$(REGISTRY_USERNAME)/kernel:$(PKGS_TAG) \
+			REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) \
+			PKG_KERNEL=$(KERNEL_IMAGE):$(PKGS_TAG) \
 			INSTALLER_ARCH=arm64 PLATFORM=linux/arm64 \
-			IMAGER_ARGS="--overlay-name=rpi5 --overlay-image=$(REGISTRY)/$(REGISTRY_USERNAME)/sbc-raspberrypi5:$(SBCOVERLAY_TAG) $(EXTENSION_FLAGS)" \
-			kernel initramfs imager installer-base installer && \
+			kernel initramfs && \
+		$(MAKE) \
+			REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) \
+			PKG_KERNEL=$(KERNEL_IMAGE):$(PKGS_TAG) \
+			INSTALLER_ARCH=arm64 PLATFORM=linux/arm64 \
+			target-imager \
+			TARGET_ARGS="--output type=image,name=$(IMAGER_IMAGE):$(TALOS_TAG),push=true" && \
+		$(MAKE) \
+			REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) \
+			PKG_KERNEL=$(KERNEL_IMAGE):$(PKGS_TAG) \
+			INSTALLER_ARCH=arm64 PLATFORM=linux/arm64 \
+			target-installer-base \
+			TARGET_ARGS="--output type=image,name=$(INSTALLER_IMAGE):base-$(TALOS_TAG),push=true" && \
+		docker pull $(IMAGER_IMAGE):$(TALOS_TAG) && \
+		docker run --rm -t -v ./_out:/out --privileged --network=host \
+			$(IMAGER_IMAGE):$(TALOS_TAG) \
+			installer --arch arm64 \
+			--base-installer-image="$(INSTALLER_IMAGE):base-$(TALOS_TAG)" \
+			$(IMAGER_COMMON_FLAGS) && \
+		crane push ./_out/installer-arm64.tar $(INSTALLER_IMAGE):$(TALOS_TAG) && \
 		docker \
 			run --rm -t -v ./_out:/out -v /dev:/dev --privileged \
-			$(REGISTRY)/$(REGISTRY_USERNAME)/imager:$(TALOS_TAG) \
+			$(IMAGER_IMAGE):$(TALOS_TAG) \
 			metal --arch arm64 \
-			--base-installer-image="$(REGISTRY)/$(REGISTRY_USERNAME)/installer:$(TALOS_TAG)" \
-			--overlay-name="rpi5" \
-			--overlay-image="$(REGISTRY)/$(REGISTRY_USERNAME)/sbc-raspberrypi5:$(SBCOVERLAY_TAG)" \
-			--overlay-option="configTxtAppend=$$(cat $(PWD)/config/config.txt.append)" \
-			$(EXTENSION_FLAGS)
+			--base-installer-image="$(INSTALLER_IMAGE):$(TALOS_TAG)" \
+			$(IMAGER_COMMON_FLAGS)
 
 #
 # Release — tag images with the Git tag for stable references
 #
 .PHONY: release
 release:
-	docker pull $(REGISTRY)/$(REGISTRY_USERNAME)/installer:$(TALOS_TAG) && \
-		docker tag $(REGISTRY)/$(REGISTRY_USERNAME)/installer:$(TALOS_TAG) $(REGISTRY)/$(REGISTRY_USERNAME)/$(IMAGE_NAME):$(TAG) && \
+	docker pull $(INSTALLER_IMAGE):$(TALOS_TAG) && \
+		docker tag $(INSTALLER_IMAGE):$(TALOS_TAG) $(REGISTRY)/$(REGISTRY_USERNAME)/$(IMAGE_NAME):$(TAG) && \
 		docker push $(REGISTRY)/$(REGISTRY_USERNAME)/$(IMAGE_NAME):$(TAG)
+
+#
+# Scout — Docker Scout CVE scan on all pushed images
+#
+SCOUT_REPORT := _out/scout-report.md
+SCOUT_IMAGES := \
+	$(KERNEL_IMAGE):$(PKGS_TAG) \
+	$(OVERLAY_IMAGE):$(SBCOVERLAY_TAG) \
+	$(IMAGER_IMAGE):$(TALOS_TAG) \
+	$(INSTALLER_IMAGE):base-$(TALOS_TAG) \
+	$(INSTALLER_IMAGE):$(TALOS_TAG)
+
+.PHONY: scout
+scout:
+	@mkdir -p _out
+	@if ! docker scout version >/dev/null 2>&1; then \
+		echo "Docker Scout not available -- skipping CVE scan." > $(SCOUT_REPORT); \
+		exit 0; \
+	fi
+	@echo "# Docker Scout CVE Summary" > $(SCOUT_REPORT)
+	@echo "" >> $(SCOUT_REPORT)
+	@for image in $(SCOUT_IMAGES); do \
+		echo "Scanning $$image ..."; \
+		echo "### $${image##*/}" >> $(SCOUT_REPORT); \
+		echo '```' >> $(SCOUT_REPORT); \
+		docker scout quickview "$$image" --platform linux/arm64 2>&1 >> $(SCOUT_REPORT) || \
+			echo "Scout scan failed for $$image" >> $(SCOUT_REPORT); \
+		echo '```' >> $(SCOUT_REPORT); \
+		echo "" >> $(SCOUT_REPORT); \
+	done
+	@echo "Scout report written to $(SCOUT_REPORT)"
 
 #
 # Clean
 #
 .PHONY: clean
 clean: checkouts-clean
+	rm -rf _out
 	rm -rf checkouts/_out

@@ -28,6 +28,13 @@ jobs:
       - name: Verify Docker is running
         run: docker info
 
+      - name: Install build dependencies
+        run: |
+          for pkg in make gnu-sed crane; do
+            brew list --formula "$pkg" &>/dev/null || brew install "$pkg"
+          done
+          gmake --version | head -1
+
       - name: Set up Docker Buildx
         run: |
           docker buildx version
@@ -42,22 +49,25 @@ jobs:
         run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
 
       - name: Clone upstream sources
-        run: make checkouts
+        run: gmake checkouts
 
       - name: Apply patches
-        run: make patches
+        run: gmake patches
 
       - name: Build kernel
-        run: make kernel
+        run: gmake kernel
 
       - name: Build SBC overlay
-        run: make overlay
+        run: gmake overlay
 
       - name: Build installer and disk image
-        run: make installer
+        run: gmake installer
 
       - name: Tag release images
-        run: make release TAG=${{ steps.version.outputs.tag }}
+        run: gmake release TAG=${{ steps.version.outputs.tag }}
+
+      - name: Run Docker Scout CVE scan
+        run: gmake scout
 
       - name: Compress disk image
         run: |
@@ -81,21 +91,38 @@ jobs:
           REPO="${GITHUB_REPOSITORY}"
           API="${GITEA_URL}/api/v1"
 
-          # Create release
+          SCOUT_SECTION=""
+          if [ -f _out/scout-report.md ]; then
+            SCOUT_SECTION=$(cat _out/scout-report.md)
+          fi
+
+          RELEASE_BODY="Custom Talos Linux image for Raspberry Pi 5 / CM5 (Compute Blade)
+
+          **Talos version**: ${TAG}
+          **Kernel**: RPi downstream (CM5/RP1 support)
+          **Extensions**: iscsi-tools, util-linux-tools
+          **Overclock**: 2.6GHz (arm_freq=2600)
+
+          ## Artifacts
+          - \`metal-arm64.raw.zst\` — Raw disk image for eMMC flashing
+          - \`docker.io/svrnty/talos-rpi5:${TAG}\` — Installer image for talosctl upgrade
+
+          ## Security Scan
+          ${SCOUT_SECTION}"
+
+          # Strip leading whitespace from heredoc-style indentation
+          RELEASE_BODY=$(echo "$RELEASE_BODY" | sed 's/^          //')
+
+          RELEASE_BODY_JSON=$(jq -Rs '.' <<< "$RELEASE_BODY")
+
           RELEASE_ID=$(curl -sf -X POST \
             -H "Authorization: token ${GITEA_TOKEN}" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"tag_name\": \"${TAG}\",
-              \"name\": \"Talos RPi5 ${TAG}\",
-              \"body\": \"Custom Talos Linux image for Raspberry Pi 5 / CM5 (Compute Blade)\n\n**Talos version**: ${TAG}\n**Kernel**: RPi downstream (CM5/RP1 support)\n**Extensions**: iscsi-tools, util-linux-tools\n**Overclock**: 2.6GHz (arm_freq=2600)\n\n## Artifacts\n- \`metal-arm64.raw.zst\` — Raw disk image for eMMC flashing\n- \`docker.io/svrnty/talos-rpi5:${TAG}\` — Installer image for talosctl upgrade\",
-              \"prerelease\": true
-            }" \
+            -d "{\"tag_name\":\"${TAG}\",\"name\":\"Talos RPi5 ${TAG}\",\"body\":${RELEASE_BODY_JSON},\"prerelease\":true}" \
             "${API}/repos/${REPO}/releases" | jq -r '.id')
 
           echo "Created release ID: ${RELEASE_ID}"
 
-          # Upload disk image
           curl -sf -X POST \
             -H "Authorization: token ${GITEA_TOKEN}" \
             -F "attachment=@metal-arm64.raw.zst" \
@@ -105,4 +132,4 @@ jobs:
 
       - name: Clean up
         if: always()
-        run: make clean
+        run: gmake clean
