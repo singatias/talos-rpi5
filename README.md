@@ -2,7 +2,42 @@
 
 Custom Talos Linux images for Raspberry Pi CM5 on Compute Blade hardware.
 
+[![Docker Hub](https://img.shields.io/docker/v/svrnty/talos-rpi5?sort=semver&label=talos-rpi5&logo=docker)](https://hub.docker.com/r/svrnty/talos-rpi5)
+[![Docker Pulls](https://img.shields.io/docker/pulls/svrnty/talos-rpi5?logo=docker)](https://hub.docker.com/r/svrnty/talos-rpi5)
+[![Docker Image Size](https://img.shields.io/docker/image-size/svrnty/talos-rpi5?sort=semver&logo=docker)](https://hub.docker.com/r/svrnty/talos-rpi5)
+
 The official Talos Image Factory does not support CM5 — the mainline kernel lacks CM5 device trees and RP1 driver support. This builder uses the RPi downstream kernel (via [talos-rpi5/talos-builder](https://github.com/talos-rpi5/talos-builder) patches) to produce working CM5 images with our extensions and overclock config.
+
+## Current versions
+
+| Component | Version |
+|-----------|---------|
+| Talos Linux | `v1.12.3` |
+| RPi Kernel | `6.12.47` |
+| iscsi-tools | `v0.1.6` |
+| util-linux-tools | `2.40.4` |
+
+## Image tags
+
+Release images are published to [`docker.io/svrnty/talos-rpi5`](https://hub.docker.com/r/svrnty/talos-rpi5) with the format:
+
+```
+v<talos>-k<kernel>-<revision>
+```
+
+For example: `v1.12.3-k6.12.47-2`
+
+| Segment | Meaning |
+|---------|---------|
+| `v1.12.3` | Upstream Talos Linux version |
+| `k6.12.47` | RPi downstream kernel version |
+| `2` | Build revision (bumped for config/patch changes on the same upstream versions) |
+
+Use this tag with `talosctl upgrade`:
+
+```bash
+talosctl upgrade --image docker.io/svrnty/talos-rpi5:v1.12.3-k6.12.47-2
+```
 
 ## What it builds
 
@@ -30,8 +65,8 @@ make installer           # Build installer + disk image
 Push a version tag to trigger an automated build:
 
 ```bash
-git tag v1.11.5-1
-git push origin v1.11.5-1
+git tag v1.12.3-k6.12.47-2
+git push origin v1.12.3-k6.12.47-2
 ```
 
 The pipeline runs on the ARM64 self-hosted runner and:
@@ -49,6 +84,8 @@ A weekly scheduled workflow checks for new Talos and RPi kernel releases and cre
 |--------|-------------|
 | `REGISTRY_USERNAME` | Docker Hub username (org-level) |
 | `REGISTRY_PASSWORD` | Docker Hub access token (org-level) |
+| `COSIGN_PRIVATE_KEY` | PEM-encoded cosign signing key (org-level) |
+| `COSIGN_PASSWORD` | Password for the cosign private key (org-level) |
 
 ## Runner Setup (Apple Silicon Mac Mini)
 
