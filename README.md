@@ -46,15 +46,70 @@ zstd -d metal-arm64.raw.zst -o metal-arm64.raw
 
 ### Upgrade an existing node
 
+> **Warning:** In-place upgrades via `talosctl upgrade` may fail on RPi5/CM5 hardware with a `SetVariableRT` EFI firmware error. See [Known issues](#known-issues) below. For now, the recommended upgrade path is to re-flash the disk image.
+
 ```bash
+# Re-flash method (reliable)
+zstd -d metal-arm64.raw.zst -o metal-arm64.raw
+# Flash to eMMC/SD via your preferred tool
+
+# In-place method (experimental — may fail, see known issues)
 talosctl upgrade --image docker.io/svrnty/talos-rpi5:v1.12.3-k6.12.47-2
 ```
 
 ### What's included
 
 - RPi downstream kernel with CM5/RP1 support
+- 16K page size (RPi Foundation default — see [known issues](#known-issues) for implications)
 - Overclock: 2.6GHz (`arm_freq=2600`, `over_voltage_delta=50000`, `arm_boost=1`)
 - Extensions: `iscsi-tools`, `util-linux-tools`
+
+## Known issues
+
+### In-place upgrade fails (SetVariableRT)
+
+`talosctl upgrade` may fail during the bootloader installation step with:
+
+```
+Firmware does not support SetVariableRT. Can not remount with rw
+```
+
+The RPi5/CM5 EFI firmware does not support runtime EFI variable writes, which the Talos bootloader update requires. **Re-flashing the disk image is the reliable upgrade path for now.** We are investigating GRUB-based boot as a fix (see [Roadmap](#roadmap)).
+
+*Upstream: <a href="https://github.com/talos-rpi5/talos-builder/issues/21" target="_blank">talos-builder#21</a>*
+
+### 16K memory pages
+
+The RPi downstream kernel defaults to 16K page size instead of upstream Talos's 4K. This means:
+
+- **Higher per-page memory overhead** — workloads that allocate many small buffers (e.g. Longhorn v2 data engine) consume significantly more RAM
+- **Potential OOM on control-plane nodes** — systems running etcd + kube-apiserver + workloads may hit memory pressure, especially on 4GB/8GB boards
+- **Incompatibility with some software** that assumes 4K pages
+
+We plan to switch to 4K pages for production readiness (see [Roadmap](#roadmap)).
+
+*Upstream: <a href="https://github.com/talos-rpi5/talos-builder/issues/3" target="_blank">talos-builder#3</a>, <a href="https://github.com/talos-rpi5/talos-builder/issues/11" target="_blank">talos-builder#11</a>*
+
+### No serial console output after boot
+
+Serial output goes silent after the EFI stub decompresses the kernel and exits boot services. This affects headless debugging on CM5 boards where serial is the primary console.
+
+*Upstream: <a href="https://github.com/talos-rpi5/talos-builder/issues/4" target="_blank">talos-builder#4</a>*
+
+### Install disk config ignored on SBCs
+
+Talos ignores the `machine.install.disk` config field on SBC platforms. You **must flash the disk image directly** to your target disk (eMMC, SD, NVMe). Booting from USB or NVMe also requires flashing directly to that disk — the image targets SD (`mmcblk0`) by default.
+
+*Upstream: <a href="https://github.com/talos-rpi5/talos-builder/issues/22" target="_blank">talos-builder#22</a>*
+
+## Roadmap
+
+This project targets production-ready Talos clusters on RPi5/CM5 hardware. Key milestones:
+
+- [ ] **Switch to 4K page size** — Align with upstream Talos kernel config to reduce memory overhead and improve workload compatibility. Requires testing RPi peripheral drivers with 4K pages.
+- [ ] **Reliable in-place upgrades** — Investigate GRUB-based boot or alternative bootloader strategies to work around the `SetVariableRT` firmware limitation, enabling `talosctl upgrade` on RPi5/CM5.
+- [ ] **Serial console fix** — Debug U-Boot/kernel handoff to restore serial output after EFI stub exit.
+- [ ] **NVMe boot support** — Produce images that target NVMe directly, or document a supported NVMe boot flow.
 
 ## Building
 

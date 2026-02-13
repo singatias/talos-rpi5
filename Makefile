@@ -115,8 +115,15 @@ patches-talos:
 		git am "$(PATCHES_DIRECTORY)/siderolabs/talos/"*.patch
 
 patches-overlay:
-	cd "$(CHECKOUTS_DIRECTORY)/sbc-raspberrypi5" && \
-		git am "$(PATCHES_DIRECTORY)/talos-rpi5/sbc-raspberrypi5/"*.patch
+	@cd "$(CHECKOUTS_DIRECTORY)/sbc-raspberrypi5" && \
+		GO_VER=$$(sed -n 's/^go //p' go.work | head -1) && \
+		GO_MINOR=$$(echo "$$GO_VER" | cut -d. -f1,2) && \
+		if [ "$$GO_MINOR" = "1.24" ]; then \
+			echo "Overlay Go $$GO_VER — applying Go toolchain patch (CVE fix)"; \
+			git am "$(PATCHES_DIRECTORY)/talos-rpi5/sbc-raspberrypi5/"*.patch; \
+		else \
+			echo "Overlay Go $$GO_VER — skipping Go toolchain patch (CVEs fixed upstream)"; \
+		fi
 
 patches: patches-pkgs patches-talos patches-overlay
 
