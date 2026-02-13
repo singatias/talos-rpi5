@@ -92,4 +92,18 @@ patches/
   siderolabs/
     pkgs/0001-*.patch      # RPi kernel patch
     talos/0001-*.patch     # Module list patch
+  talos-rpi5/
+    sbc-raspberrypi5/      # Overlay patches (Go toolchain bump)
 ```
+
+## License
+
+This project is licensed under the [Mozilla Public License 2.0](LICENSE).
+
+It builds upon the following MPL 2.0 licensed upstream projects:
+
+- [siderolabs/talos](https://github.com/siderolabs/talos) — Talos Linux OS
+- [siderolabs/pkgs](https://github.com/siderolabs/pkgs) — Talos package definitions
+- [talos-rpi5/sbc-raspberrypi5](https://github.com/talos-rpi5/sbc-raspberrypi5) — Raspberry Pi 5 SBC overlay
+
+Our patches to these projects are in the `patches/` directory and are distributed under the same MPL 2.0 terms.

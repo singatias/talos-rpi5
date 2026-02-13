@@ -51,7 +51,7 @@ SBCOVERLAY_TAG = $(shell cd $(CHECKOUTS_DIRECTORY)/sbc-raspberrypi5 && git descr
 EXTENSION_FLAGS = $(foreach ext,$(EXTENSIONS),--system-extension-image=$(ext))
 
 # Supply chain attestation flags (overrides upstream --provenance=false)
-ATTESTATION_ARGS = --provenance=true --sbom=true
+ATTESTATION_ARGS = --provenance=mode=max --sbom=true
 
 # Common imager flags for overlay and extensions
 IMAGER_COMMON_FLAGS = \
