@@ -103,5 +103,21 @@ LAST_BUILD=$(git tag -l "${TAG_PREFIX}-*" \
 NEXT_BUILD=$(( ${LAST_BUILD:-0} + 1 ))
 NEW_TAG="${TAG_PREFIX}-${NEXT_BUILD}"
 
+# ── Update README badges and examples ───────────────────────────────
+README="README.md"
+if [ -f "$README" ]; then
+  OLD_TALOS=$(sed -n 's/.*talos-v\([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p' "$README" | head -1)
+  OLD_KERNEL=$(sed -n 's/.*kernel-\([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p' "$README" | head -1)
+  OLD_TAG=$(sed -n 's/.*\(v[0-9]*\.[0-9]*\.[0-9]*-k[0-9]*\.[0-9]*\.[0-9]*-[0-9]*\).*/\1/p' "$README" | head -1)
+
+  echo "Updating README: talos v${OLD_TALOS} → v${TALOS_VER}, kernel ${OLD_KERNEL} → ${KERNEL_VER}, tag ${OLD_TAG} → ${NEW_TAG}" >&2
+
+  sed -i "s/talos-v${OLD_TALOS}/talos-v${TALOS_VER}/g" "$README"
+  sed -i "s/kernel-${OLD_KERNEL}/kernel-${KERNEL_VER}/g" "$README"
+  if [ -n "$OLD_TAG" ]; then
+    sed -i "s/${OLD_TAG}/${NEW_TAG}/g" "$README"
+  fi
+fi
+
 echo "Generated tag: $NEW_TAG" >&2
 echo "new_tag=$NEW_TAG"
