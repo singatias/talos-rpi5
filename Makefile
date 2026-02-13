@@ -50,6 +50,9 @@ SBCOVERLAY_TAG = $(shell cd $(CHECKOUTS_DIRECTORY)/sbc-raspberrypi5 && git descr
 # Build the --system-extension-image flags from the EXTENSIONS list
 EXTENSION_FLAGS = $(foreach ext,$(EXTENSIONS),--system-extension-image=$(ext))
 
+# Supply chain attestation flags (overrides upstream --provenance=false)
+ATTESTATION_ARGS = --provenance=true --sbom=true
+
 # Common imager flags for overlay and extensions
 IMAGER_COMMON_FLAGS = \
 	--overlay-name="rpi5" \
@@ -103,7 +106,7 @@ checkouts-clean:
 #
 # Patches
 #
-.PHONY: patches-pkgs patches-talos patches
+.PHONY: patches-pkgs patches-talos patches-overlay patches
 patches-pkgs:
 	cd "$(CHECKOUTS_DIRECTORY)/pkgs" && \
 		git am "$(PATCHES_DIRECTORY)/siderolabs/pkgs/"*.patch
@@ -112,7 +115,11 @@ patches-talos:
 	cd "$(CHECKOUTS_DIRECTORY)/talos" && \
 		git am "$(PATCHES_DIRECTORY)/siderolabs/talos/"*.patch
 
-patches: patches-pkgs patches-talos
+patches-overlay:
+	cd "$(CHECKOUTS_DIRECTORY)/sbc-raspberrypi5" && \
+		git am "$(PATCHES_DIRECTORY)/talos-rpi5/sbc-raspberrypi5/"*.patch
+
+patches: patches-pkgs patches-talos patches-overlay
 
 #
 # Kernel — build and push the RPi downstream kernel
@@ -121,7 +128,7 @@ patches: patches-pkgs patches-talos
 kernel:
 	cd "$(CHECKOUTS_DIRECTORY)/pkgs" && \
 		$(MAKE) docker-kernel \
-			TARGET_ARGS="--tag=$(KERNEL_IMAGE):$(PKGS_TAG) --push=true" \
+			TARGET_ARGS="--tag=$(KERNEL_IMAGE):$(PKGS_TAG) --push=true $(ATTESTATION_ARGS)" \
 			PLATFORM=linux/arm64
 
 #
@@ -138,7 +145,7 @@ overlay:
 		rm -f "$(CHECKOUTS_DIRECTORY)/sbc-raspberrypi5/internal/base/pkg.yaml.bak"
 	cd "$(CHECKOUTS_DIRECTORY)/sbc-raspberrypi5" && \
 		$(MAKE) docker-sbc-raspberrypi5 \
-			TARGET_ARGS="--tag=$(OVERLAY_IMAGE):$(SBCOVERLAY_TAG) --push=true" \
+			TARGET_ARGS="--tag=$(OVERLAY_IMAGE):$(SBCOVERLAY_TAG) --push=true $(ATTESTATION_ARGS)" \
 			INSTALLER_ARCH=arm64 PLATFORM=linux/arm64
 
 #
@@ -160,13 +167,13 @@ installer:
 			PKG_KERNEL=$(KERNEL_IMAGE):$(PKGS_TAG) \
 			INSTALLER_ARCH=arm64 PLATFORM=linux/arm64 \
 			target-imager \
-			TARGET_ARGS="--output type=image,name=$(IMAGER_IMAGE):$(TALOS_TAG),push=true" && \
+			TARGET_ARGS="--output type=image,name=$(IMAGER_IMAGE):$(TALOS_TAG),push=true $(ATTESTATION_ARGS)" && \
 		$(MAKE) \
 			REGISTRY=$(REGISTRY) USERNAME=$(REGISTRY_USERNAME) \
 			PKG_KERNEL=$(KERNEL_IMAGE):$(PKGS_TAG) \
 			INSTALLER_ARCH=arm64 PLATFORM=linux/arm64 \
 			target-installer-base \
-			TARGET_ARGS="--output type=image,name=$(INSTALLER_IMAGE):base-$(TALOS_TAG),push=true" && \
+			TARGET_ARGS="--output type=image,name=$(INSTALLER_IMAGE):base-$(TALOS_TAG),push=true $(ATTESTATION_ARGS)" && \
 		docker pull $(IMAGER_IMAGE):$(TALOS_TAG) && \
 		docker run --rm -t -v ./_out:/out --privileged --network=host \
 			$(IMAGER_IMAGE):$(TALOS_TAG) \

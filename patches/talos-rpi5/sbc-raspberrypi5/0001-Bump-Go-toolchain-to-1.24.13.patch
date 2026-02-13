@@ -1,0 +1,38 @@
+From 69f14c84e9e458dcff24905145cac8557c0e2965 Mon Sep 17 00:00:00 2001
+From: Mathias Beaulieu-Duncan <mathias@svrnty.io>
+Date: Fri, 13 Feb 2026 15:25:26 -0500
+Subject: [PATCH] Bump Go toolchain to 1.24.13 to fix stdlib CVEs
+
+---
+ go.work                    | 4 +++-
+ installers/rpi5/src/go.mod | 4 +++-
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/go.work b/go.work
+index f4dafe7..798ea43 100644
+--- a/go.work
++++ b/go.work
+@@ -1,3 +1,5 @@
+-go 1.24.0
++go 1.24.13
++
++toolchain go1.24.13
+ 
+ use ./installers/rpi5/src
+diff --git a/installers/rpi5/src/go.mod b/installers/rpi5/src/go.mod
+index 50b72d5..af5f5f8 100644
+--- a/installers/rpi5/src/go.mod
++++ b/installers/rpi5/src/go.mod
+@@ -1,6 +1,8 @@
+ module rpi_generic
+ 
+-go 1.24.0
++go 1.24.13
++
++toolchain go1.24.13
+ 
+ require (
+ 	github.com/siderolabs/go-copy v0.1.0
+-- 
+2.50.1 (Apple Git-155)
+
