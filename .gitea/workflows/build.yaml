@@ -30,7 +30,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          for pkg in make gnu-sed crane cosign syft; do
+          for pkg in make gnu-sed crane; do
             brew list --formula "$pkg" &>/dev/null || brew install "$pkg"
           done
           gmake --version | head -1
@@ -63,15 +63,8 @@ jobs:
       - name: Build installer and disk image
         run: gmake installer
 
-      - name: Attest installer image
-        env:
-          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
-        run: gmake attest COSIGN_KEY=<(echo "${{ secrets.COSIGN_PRIVATE_KEY }}")
-
       - name: Tag release images
-        env:
-          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
-        run: gmake release TAG=${{ steps.version.outputs.tag }} COSIGN_KEY=<(echo "${{ secrets.COSIGN_PRIVATE_KEY }}")
+        run: gmake release TAG=${{ steps.version.outputs.tag }}
 
       - name: Compress disk image
         run: |

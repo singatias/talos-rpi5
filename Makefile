@@ -74,7 +74,6 @@ help:
 	@echo "  overlay    — Build SBC overlay (U-Boot, firmware, DTBs)"
 	@echo "  installer  — Build Talos installer image + raw disk image"
 	@echo "  release    — Tag and push release images"
-	@echo "  attest     — Attach SBOM attestation to installer image"
 	@echo "  clean      — Remove checkouts and build artifacts"
 	@echo ""
 	@echo "Variables:"
@@ -180,7 +179,11 @@ installer:
 			installer --arch arm64 \
 			--base-installer-image="$(INSTALLER_IMAGE):base-$(TALOS_TAG)" \
 			$(IMAGER_COMMON_FLAGS) && \
-		crane push ./_out/installer-arm64.tar $(INSTALLER_IMAGE):$(TALOS_TAG) && \
+		LOADED=$$(docker load -i ./_out/installer-arm64.tar | sed 's/Loaded image: //') && \
+		printf "FROM $$LOADED\n" | docker buildx build \
+			--platform linux/arm64 \
+			$(ATTESTATION_ARGS) \
+			-t $(INSTALLER_IMAGE):$(TALOS_TAG) --push - && \
 		docker \
 			run --rm -t -v ./_out:/out -v /dev:/dev --privileged \
 			$(IMAGER_IMAGE):$(TALOS_TAG) \
@@ -189,31 +192,13 @@ installer:
 			$(IMAGER_COMMON_FLAGS)
 
 #
-# Attestation — attach SBOM to crane-pushed images
-#
-COSIGN_KEY ?= cosign.key
-
-.PHONY: attest
-attest:
-	syft $(INSTALLER_IMAGE):$(TALOS_TAG) \
-		--platform linux/arm64 \
-		-o spdx-json=_out/installer-sbom.spdx.json
-	cosign attest --predicate _out/installer-sbom.spdx.json \
-		--type spdxjson \
-		--key $(COSIGN_KEY) \
-		$(INSTALLER_IMAGE):$(TALOS_TAG)
-
-#
 # Release — tag images with the Git tag for stable references
 #
 .PHONY: release
 release:
-	crane copy $(INSTALLER_IMAGE):$(TALOS_TAG) \
-		$(REGISTRY)/$(REGISTRY_USERNAME)/$(IMAGE_NAME):$(TAG)
-	cosign attest --predicate _out/installer-sbom.spdx.json \
-		--type spdxjson \
-		--key $(COSIGN_KEY) \
-		$(REGISTRY)/$(REGISTRY_USERNAME)/$(IMAGE_NAME):$(TAG)
+	docker buildx imagetools create \
+		-t $(REGISTRY)/$(REGISTRY_USERNAME)/$(IMAGE_NAME):$(TAG) \
+		$(INSTALLER_IMAGE):$(TALOS_TAG)
 
 #
 # Clean

@@ -36,8 +36,6 @@ A weekly scheduled workflow checks for new Talos and RPi kernel releases and cre
 |--------|-------------|
 | `REGISTRY_USERNAME` | Docker Hub username (org-level) |
 | `REGISTRY_PASSWORD` | Docker Hub access token (org-level) |
-| `COSIGN_PRIVATE_KEY` | PEM-encoded cosign signing key (org-level) |
-| `COSIGN_PASSWORD` | Password for the cosign private key (org-level) |
 
 ## Runner Setup (Apple Silicon Mac Mini)
 
