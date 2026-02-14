@@ -188,6 +188,10 @@ installer:
 			--base-installer-image="$(INSTALLER_IMAGE):base-$(TALOS_TAG)" \
 			$(IMAGER_COMMON_FLAGS) && \
 		crane push ./_out/installer-arm64.tar $(INSTALLER_IMAGE):$(TALOS_TAG) && \
+		printf "FROM $(INSTALLER_IMAGE):$(TALOS_TAG)\n" | docker buildx build \
+			--platform linux/arm64 \
+			$(ATTESTATION_ARGS) \
+			-t $(INSTALLER_IMAGE):$(TALOS_TAG) --push - && \
 		docker \
 			run --rm -t -v ./_out:/out -v /dev:/dev --privileged \
 			$(IMAGER_IMAGE):$(TALOS_TAG) \
