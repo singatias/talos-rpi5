@@ -79,6 +79,8 @@ patches/
   siderolabs/
     pkgs/0001-*.patch      # RPi kernel patch
     talos/0001-*.patch     # Module list patch
+    talos/0002-*.patch     # Skip NVRAM writes for GRUB on arm64
+    talos/0003-*.patch     # Force GRUB bootloader on arm64
   talos-rpi5/
     sbc-raspberrypi5/      # Overlay patches (Go toolchain bump)
 cosign.pub                 # Public key for verifying image attestations

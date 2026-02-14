@@ -1,0 +1,33 @@
+From 2db8797af370535aba7c5694cd291bba8e6c5a67 Mon Sep 17 00:00:00 2001
+From: Mathias Beaulieu-Duncan <mathias@svrnty.io>
+Date: Fri, 13 Feb 2026 19:08:41 -0500
+Subject: [PATCH 2/3] Skip NVRAM writes for GRUB on arm64
+
+On arm64 platforms like RPi5/CM5, the UEFI firmware (U-Boot) does not
+support EFI runtime SetVariable, causing grub-install to fail when
+efibootmgr tries to create NVRAM boot entries. Since arm64-efi systems
+boot by convention (finding BOOTAA64.efi on the ESP), NVRAM boot
+entries are unnecessary.
+
+Pass --no-nvram to grub-install on arm64 to allow in-place upgrades
+via talosctl upgrade to succeed.
+---
+ .../machined/pkg/runtime/v1alpha1/bootloader/grub/install.go    | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/install.go b/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/install.go
+index 6f5c9f8..766374b 100644
+--- a/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/install.go
++++ b/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/install.go
+@@ -196,7 +196,7 @@ func (c *Config) install(opts options.InstallOptions) (*options.InstallResult, e
+ 			args = append(args, "--efi-directory="+filepath.Join(opts.MountPrefix, constants.EFIMountPoint))
+ 		}
+ 
+-		if opts.ImageMode {
++		if opts.ImageMode || opts.Arch == arm64 {
+ 			args = append(args, "--no-nvram")
+ 		}
+ 
+-- 
+2.50.1 (Apple Git-155)
+

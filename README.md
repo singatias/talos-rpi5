@@ -46,36 +46,26 @@ zstd -d metal-arm64.raw.zst -o metal-arm64.raw
 
 ### Upgrade an existing node
 
-> **Warning:** In-place upgrades via `talosctl upgrade` may fail on RPi5/CM5 hardware with a `SetVariableRT` EFI firmware error. See [Known issues](#known-issues) below. For now, the recommended upgrade path is to re-flash the disk image.
+```bash
+talosctl upgrade --image docker.io/svrnty/talos-rpi5:v1.12.3-k6.12.47-2
+```
+
+> **Note:** In-place upgrades use GRUB with `--no-nvram` to work around the RPi5/CM5 `SetVariableRT` firmware limitation. This patch is included but not yet tested in production — re-flashing the disk image is the proven fallback.
 
 ```bash
-# Re-flash method (reliable)
+# Fallback: re-flash method
 zstd -d metal-arm64.raw.zst -o metal-arm64.raw
 # Flash to eMMC/SD via your preferred tool
-
-# In-place method (experimental — may fail, see known issues)
-talosctl upgrade --image docker.io/svrnty/talos-rpi5:v1.12.3-k6.12.47-2
 ```
 
 ### What's included
 
 - RPi downstream kernel with CM5/RP1 support (4K page size, aligned with upstream Talos)
+- GRUB bootloader with `--no-nvram` for reliable `talosctl upgrade` on RPi5/CM5
 - Overclock: 2.6GHz (`arm_freq=2600`, `over_voltage_delta=50000`, `arm_boost=1`)
 - Extensions: `iscsi-tools`, `util-linux-tools`
 
 ## Known issues
-
-### In-place upgrade fails (SetVariableRT)
-
-`talosctl upgrade` may fail during the bootloader installation step with:
-
-```
-Firmware does not support SetVariableRT. Can not remount with rw
-```
-
-The RPi5/CM5 EFI firmware does not support runtime EFI variable writes, which the Talos bootloader update requires. **Re-flashing the disk image is the reliable upgrade path for now.** We are investigating GRUB-based boot as a fix (see [Roadmap](#roadmap)).
-
-*Upstream: <a href="https://github.com/talos-rpi5/talos-builder/issues/21" target="_blank">talos-builder#21</a>*
 
 ### No serial console output after boot
 
@@ -91,12 +81,14 @@ Talos ignores the `machine.install.disk` config field on SBC platforms. You **mu
 
 ## Roadmap
 
-This project targets production-ready Talos clusters on RPi5/CM5 hardware. Key milestones:
+This project targets production-ready Talos clusters on RPi5/CM5 hardware.
 
-- [x] **Switch to 4K page size** — Aligned with upstream Talos kernel config. Reduces memory overhead and improves workload compatibility (Longhorn, jemalloc, F2FS, etc.).
-- [ ] **Reliable in-place upgrades** — Investigate GRUB-based boot or alternative bootloader strategies to work around the `SetVariableRT` firmware limitation, enabling `talosctl upgrade` on RPi5/CM5.
-- [ ] **Serial console fix** — Debug U-Boot/kernel handoff to restore serial output after EFI stub exit.
-- [ ] **NVMe boot support** — Produce images that target NVMe directly, or document a supported NVMe boot flow.
+| Status | Milestone | Description |
+|--------|-----------|-------------|
+| Untested | **4K page size** | Aligned with upstream Talos kernel config. Reduces memory overhead and improves workload compatibility (Longhorn, jemalloc, F2FS, etc.). |
+| Untested | **Reliable in-place upgrades** | Force GRUB bootloader with `--no-nvram` on arm64 to work around the `SetVariableRT` firmware limitation (<a href="https://github.com/talos-rpi5/talos-builder/issues/21" target="_blank">talos-builder#21</a>). |
+| Pending | **Serial console fix** | Debug U-Boot/kernel handoff to restore serial output after EFI stub exit. |
+| Pending | **NVMe boot support** | Produce images that target NVMe directly, or document a supported NVMe boot flow. |
 
 ## Building
 
