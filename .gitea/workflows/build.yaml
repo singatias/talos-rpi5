@@ -20,8 +20,6 @@ jobs:
   build:
     runs-on: [self-hosted, macos]
     timeout-minutes: 180
-    env:
-      PATH: /opt/homebrew/opt/gnu-sed/libexec/gnubin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 
     steps:
       - name: Checkout
@@ -35,6 +33,7 @@ jobs:
           for pkg in make gnu-sed crane; do
             brew list --formula "$pkg" &>/dev/null || brew install "$pkg"
           done
+          echo "/opt/homebrew/opt/gnu-sed/libexec/gnubin" >> "$GITHUB_PATH"
           gmake --version | head -1
 
       - name: Set up Docker Buildx

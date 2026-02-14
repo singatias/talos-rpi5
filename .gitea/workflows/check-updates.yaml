@@ -15,8 +15,6 @@ jobs:
   check-and-build:
     runs-on: [self-hosted, macos]
     timeout-minutes: 15
-    env:
-      PATH: /opt/homebrew/opt/gnu-sed/libexec/gnubin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 
     steps:
       - name: Checkout
@@ -29,6 +27,7 @@ jobs:
           for pkg in make gnu-sed crane jq; do
             brew list --formula "$pkg" &>/dev/null || brew install "$pkg"
           done
+          echo "/opt/homebrew/opt/gnu-sed/libexec/gnubin" >> "$GITHUB_PATH"
 
       - name: Check for upstream updates
         id: check
