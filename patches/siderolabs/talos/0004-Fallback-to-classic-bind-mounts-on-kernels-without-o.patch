@@ -1,0 +1,45 @@
+From 98366401143dcc31c056a7d96242775f9ba013ca Mon Sep 17 00:00:00 2001
+From: Mathias Beaulieu-Duncan <mathias@svrnty.io>
+Date: Sat, 14 Feb 2026 14:05:15 -0500
+Subject: [PATCH 4/4] Fallback to classic bind mounts on kernels without
+ open_tree support
+
+The open_tree syscall on anonymous filesystem file descriptors was added
+in kernel 6.15.0. Talos previously only checked for this capability when
+running in container mode, assuming bare metal always had a sufficiently
+new kernel. However, platforms like RPi5/CM5 use the RPi downstream
+kernel (6.12.x) which lacks this feature, causing shadow bind mount
+failures for /etc files and cascading network initialization failures.
+
+Remove the InContainer() gate so the OpentreeOnAnonymousFS() capability
+check runs on all platforms, enabling the classic (OSRoot) fallback when
+the kernel does not support the newer mount API.
+---
+ .../pkg/runtime/v1alpha2/v1alpha2_controller.go       | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/internal/app/machined/pkg/runtime/v1alpha2/v1alpha2_controller.go b/internal/app/machined/pkg/runtime/v1alpha2/v1alpha2_controller.go
+index 29b297654..653a45d57 100644
+--- a/internal/app/machined/pkg/runtime/v1alpha2/v1alpha2_controller.go
++++ b/internal/app/machined/pkg/runtime/v1alpha2/v1alpha2_controller.go
+@@ -113,11 +113,12 @@ func (ctrl *Controller) Run(ctx context.Context, drainer *runtime.Drainer) error
+ 
+ 	networkBindMountTarget = constants.SystemResolvedPath
+ 
+-	// While running in container, we don't have control over kernel version
+-	// shipped with the machine. If the kernel does not support open_tree syscall
+-	// on anonymous filesystem file descriptors, we need to fallback to the classic,
+-	// less secure mode. This capability was added in kernel 6.15.0.
+-	if ctrl.v1alpha1Runtime.State().Platform().Mode().InContainer() {
++	// If the kernel does not support open_tree syscall on anonymous filesystem
++	// file descriptors, we need to fallback to the classic, less secure mode.
++	// This capability was added in kernel 6.15.0. This check is needed for
++	// containers (where the host kernel is unknown) and for bare metal platforms
++	// running older kernels such as the RPi downstream kernel (6.12.x).
++	{
+ 		opentreeOnAnonymous, err := runtime.KernelCapabilities().OpentreeOnAnonymousFS()
+ 		if err != nil {
+ 			return err
+-- 
+2.50.1 (Apple Git-155)
+
