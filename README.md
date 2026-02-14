@@ -90,6 +90,50 @@ This project targets production-ready Talos clusters on RPi5/CM5 hardware.
 | Untested | **Serial console fix** | Use correct debug UART (`ttyAMA10`) with `earlycon` for early boot output. |
 | Untested | **NVMe boot support** | `dd` image to NVMe + set EEPROM `BOOT_ORDER=0xf416` and `PCIE_PROBE=1`. Kernel has `CONFIG_BLK_DEV_NVME=y` built-in. |
 
+## NVMe boot (untested)
+
+The kernel has NVMe built-in (`CONFIG_BLK_DEV_NVME=y`), so booting from NVMe should work by flashing the disk image directly and configuring the RPi5/CM5 EEPROM.
+
+### 1. Flash the image to NVMe
+
+Connect the NVMe drive via a USB adapter and flash:
+
+```bash
+zstd -d metal-arm64.raw.zst | sudo dd of=/dev/<nvme-device> bs=4M status=progress
+sync
+```
+
+### 2. Configure EEPROM boot order
+
+Boot into Raspberry Pi OS on an SD card and run:
+
+```bash
+sudo rpi-eeprom-config --edit
+```
+
+Set these values:
+
+```ini
+BOOT_ORDER=0xf416
+PCIE_PROBE=1
+```
+
+`BOOT_ORDER` is read right-to-left: try NVMe (`6`) first, then SD (`1`), then USB (`4`), then restart (`f`). `PCIE_PROBE=1` is required for non-HAT+ NVMe adapters (Compute Blade, most M.2 carrier boards).
+
+### 3. Boot from NVMe
+
+Remove the SD card and power on. The RPi firmware should find the boot partition on NVMe, load U-Boot, and boot Talos.
+
+### Optional: enable PCIe Gen 3
+
+Add to your `configTxtAppend` overlay option or directly to `config.txt` on the boot partition:
+
+```ini
+dtparam=pciex1_gen=3
+```
+
+This doubles throughput (~400 MB/s Gen 2 to ~800 MB/s Gen 3). Not officially certified by Raspberry Pi but works on most NVMe drives.
+
 ## Building
 
 For local builds, CI/CD setup, runner configuration, and project structure, see [TECHNICAL.md](TECHNICAL.md).
