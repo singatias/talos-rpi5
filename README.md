@@ -67,9 +67,9 @@ zstd -d metal-arm64.raw.zst -o metal-arm64.raw
 
 ## Known issues
 
-### No serial console output after boot
+### ~~No serial console output after boot~~ (Fixed)
 
-Serial output goes silent after the EFI stub decompresses the kernel and exits boot services. This affects headless debugging on CM5 boards where serial is the primary console.
+The overlay was using `console=ttyAMA0` (GPIO 14/15 UART) but the RPi5/CM5 debug UART is `ttyAMA10`. Fixed by switching to `console=ttyAMA10,115200` and adding `earlycon=pl011,0x107d001000,115200n8` for early boot output. Also added `[pi5] enable_uart=0` to `config.txt` to match upstream and avoid U-Boot compatibility issues.
 
 *Upstream: <a href="https://github.com/talos-rpi5/talos-builder/issues/4" target="_blank">talos-builder#4</a>*
 
@@ -87,7 +87,7 @@ This project targets production-ready Talos clusters on RPi5/CM5 hardware.
 |--------|-----------|-------------|
 | Untested | **4K page size** | Aligned with upstream Talos kernel config. Reduces memory overhead and improves workload compatibility (Longhorn, jemalloc, F2FS, etc.). |
 | Untested | **Reliable in-place upgrades** | Force GRUB bootloader with `--no-nvram` on arm64 to work around the `SetVariableRT` firmware limitation (<a href="https://github.com/talos-rpi5/talos-builder/issues/21" target="_blank">talos-builder#21</a>). |
-| Pending | **Serial console fix** | Debug U-Boot/kernel handoff to restore serial output after EFI stub exit. |
+| Untested | **Serial console fix** | Use correct debug UART (`ttyAMA10`) with `earlycon` for early boot output. |
 | Pending | **NVMe boot support** | Produce images that target NVMe directly, or document a supported NVMe boot flow. |
 
 ## Building

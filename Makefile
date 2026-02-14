@@ -120,10 +120,11 @@ patches-overlay:
 		GO_MINOR=$$(echo "$$GO_VER" | cut -d. -f1,2) && \
 		if [ "$$GO_MINOR" = "1.24" ]; then \
 			echo "Overlay Go $$GO_VER — applying Go toolchain patch (CVE fix)"; \
-			git am "$(PATCHES_DIRECTORY)/talos-rpi5/sbc-raspberrypi5/"*.patch; \
+			git am "$(PATCHES_DIRECTORY)/talos-rpi5/sbc-raspberrypi5/0001-"*.patch; \
 		else \
 			echo "Overlay Go $$GO_VER — skipping Go toolchain patch (CVEs fixed upstream)"; \
-		fi
+		fi && \
+		git am "$(PATCHES_DIRECTORY)/talos-rpi5/sbc-raspberrypi5/0002-"*.patch
 
 patches: patches-pkgs patches-talos patches-overlay
 

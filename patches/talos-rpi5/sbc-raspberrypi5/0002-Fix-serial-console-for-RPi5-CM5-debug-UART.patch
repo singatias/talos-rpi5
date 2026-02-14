@@ -1,0 +1,64 @@
+From 7c1f75d724e54df5382d7900a0fdfac50f870043 Mon Sep 17 00:00:00 2001
+From: Mathias Beaulieu-Duncan <mathias@svrnty.io>
+Date: Fri, 13 Feb 2026 19:43:02 -0500
+Subject: [PATCH] Fix serial console for RPi5/CM5 debug UART
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The overlay was using console=ttyAMA0 (GPIO 14/15 UART) but the RPi5
+debug UART — the JST connector between HDMI ports on Pi5, or test pads
+TP35/TP36 on CM5 — is ttyAMA10.
+
+Changes:
+- main.go: Use console=ttyAMA10,115200 (Pi5 debug UART, not GPIO UART0)
+- main.go: Add earlycon=pl011,0x107d001000,115200n8 for early boot output
+  before the full PL011 driver initializes
+- config.txt: Add [pi5] enable_uart=0 to match upstream and avoid U-Boot
+  compatibility issues (the debug UART is always active regardless)
+
+The earlycon parameter uses the BCM2712 debug UART MMIO base address
+(0x107d001000) to provide kernel output immediately after ExitBootServices,
+bridging the gap between U-Boot handoff and full driver init.
+---
+ installers/rpi5/src/config.txt | 7 ++++++-
+ installers/rpi5/src/main.go    | 3 ++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/installers/rpi5/src/config.txt b/installers/rpi5/src/config.txt
+index 1445d0e..7af461e 100644
+--- a/installers/rpi5/src/config.txt
++++ b/installers/rpi5/src/config.txt
+@@ -11,8 +11,13 @@ kernel=u-boot.bin
+ arm_64bit=1
+ # Run as fast as firmware / board allows.
+ arm_boost=1
+-# Enable the primary/console UART.
++# Enable the primary/console UART (globally).
+ enable_uart=1
++# Disable UART on Pi5 to avoid U-Boot compatibility issue.
++# The debug UART (ttyAMA10) is always active regardless of this setting.
++[pi5]
++enable_uart=0
++[all]
+ # Disable Bluetooth.
+ dtoverlay=disable-bt
+ # Disable Wireless Lan.
+diff --git a/installers/rpi5/src/main.go b/installers/rpi5/src/main.go
+index 38cd824..fed3819 100644
+--- a/installers/rpi5/src/main.go
++++ b/installers/rpi5/src/main.go
+@@ -32,8 +32,9 @@ func (i *RpiInstaller) GetOptions(extra rpiOptions) (overlay.Options, error) {
+ 	return overlay.Options{
+ 		Name: "rpi5",
+ 		KernelArgs: []string{
++			"earlycon=pl011,0x107d001000,115200n8",
+ 			"console=tty0",
+-			"console=ttyAMA0,115200",
++			"console=ttyAMA10,115200",
+ 			"sysctl.kernel.kexec_load_disabled=1",
+ 			"talos.dashboard.disabled=1",
+ 		},
+-- 
+2.50.1 (Apple Git-155)
+
