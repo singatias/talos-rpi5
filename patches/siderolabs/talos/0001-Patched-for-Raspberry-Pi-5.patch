@@ -11,7 +11,7 @@ diff --git a/hack/modules-arm64.txt b/hack/modules-arm64.txt
 index 3b11b7551..95c3ee669 100644
 --- a/hack/modules-arm64.txt
 +++ b/hack/modules-arm64.txt
-@@ -1,237 +1,190 @@
+@@ -1,238 +1,191 @@
 -kernel/arch/arm64/lib/xor-neon.ko
 +modules.builtin.bin
 +modules.builtin.modinfo
@@ -47,6 +47,7 @@ index 3b11b7551..95c3ee669 100644
 +kernel/crypto/xxhash_generic.ko
 +kernel/crypto/zstd.ko
 +kernel/net/ipv4/ip_gre.ko
++kernel/net/ipv6/ip6_gre.ko
 +kernel/net/tls/tls.ko
 +kernel/net/openvswitch/vport-gre.ko
 +kernel/drivers/infiniband/sw/rxe/rdma_rxe.ko
@@ -394,6 +395,7 @@ index 3b11b7551..95c3ee669 100644
  kernel/lib/parman.ko
 -kernel/lib/raid6/raid6_pq.ko
 -kernel/net/ipv4/ip_gre.ko
+-kernel/net/ipv6/ip6_gre.ko
 -kernel/net/openvswitch/vport-gre.ko
 -kernel/net/tls/tls.ko
 +kernel/fs/btrfs/btrfs.ko

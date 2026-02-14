@@ -83,11 +83,11 @@ fi
 echo "Running patch smoke test ..." >&2
 if ! gmake checkouts patches; then
   echo "Patches failed to apply!" >&2
-  gmake checkouts-clean 2>/dev/null || true
+  gmake checkouts-clean >/dev/null 2>&1 || true
   echo "patch_failed=true"
   exit 0
 fi
-gmake checkouts-clean
+gmake checkouts-clean >/dev/null 2>&1
 
 # ── Generate tag ────────────────────────────────────────────────────
 TALOS_VER=$(grep '^TALOS_VERSION' "$MAKEFILE" | awk '{print $NF}')
