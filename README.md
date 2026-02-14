@@ -75,7 +75,7 @@ The overlay was using `console=ttyAMA0` (GPIO 14/15 UART) but the RPi5/CM5 debug
 
 ### Install disk config ignored on SBCs
 
-Talos ignores the `machine.install.disk` config field on SBC platforms. You **must flash the disk image directly** to your target disk (eMMC, SD, NVMe). Booting from USB or NVMe also requires flashing directly to that disk — the image targets SD (`mmcblk0`) by default.
+Talos ignores the `machine.install.disk` config field on SBC platforms. You **must flash the disk image directly** to your target disk (eMMC, SD, NVMe). For NVMe boot, `dd` the metal image to the NVMe drive and configure the EEPROM boot order (`BOOT_ORDER=0xf416`, `PCIE_PROBE=1`).
 
 *Upstream: <a href="https://github.com/talos-rpi5/talos-builder/issues/22" target="_blank">talos-builder#22</a>*
 
@@ -88,7 +88,7 @@ This project targets production-ready Talos clusters on RPi5/CM5 hardware.
 | Untested | **4K page size** | Aligned with upstream Talos kernel config. Reduces memory overhead and improves workload compatibility (Longhorn, jemalloc, F2FS, etc.). |
 | Untested | **Reliable in-place upgrades** | Force GRUB bootloader with `--no-nvram` on arm64 to work around the `SetVariableRT` firmware limitation (<a href="https://github.com/talos-rpi5/talos-builder/issues/21" target="_blank">talos-builder#21</a>). |
 | Untested | **Serial console fix** | Use correct debug UART (`ttyAMA10`) with `earlycon` for early boot output. |
-| Pending | **NVMe boot support** | Produce images that target NVMe directly, or document a supported NVMe boot flow. |
+| Untested | **NVMe boot support** | `dd` image to NVMe + set EEPROM `BOOT_ORDER=0xf416` and `PCIE_PROBE=1`. Kernel has `CONFIG_BLK_DEV_NVME=y` built-in. |
 
 ## Building
 
