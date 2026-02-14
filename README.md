@@ -105,24 +105,33 @@ sync
 
 ### 2. Configure EEPROM boot order
 
-Boot into Raspberry Pi OS on an SD card and run:
+Use `rpiboot` to update the CM5 EEPROM. Clone the usbboot repo and edit the boot config:
 
 ```bash
-sudo rpi-eeprom-config --edit
+git clone --depth=1 https://github.com/raspberrypi/usbboot
+cd usbboot && make
+# Edit the EEPROM config for CM5
+cp recovery/boot.conf recovery/boot.conf.bak
 ```
 
-Set these values:
+Add or update these values in `recovery/boot.conf`:
 
 ```ini
 BOOT_ORDER=0xf416
 PCIE_PROBE=1
 ```
 
+Then flash via USB with the CM5 in USB boot mode (hold nRPIBOOT or disable eMMC boot on your carrier board):
+
+```bash
+sudo ./rpiboot -d recovery
+```
+
 `BOOT_ORDER` is read right-to-left: try NVMe (`6`) first, then SD (`1`), then USB (`4`), then restart (`f`). `PCIE_PROBE=1` is required for non-HAT+ NVMe adapters (Compute Blade, most M.2 carrier boards).
 
 ### 3. Boot from NVMe
 
-Remove the SD card and power on. The RPi firmware should find the boot partition on NVMe, load U-Boot, and boot Talos.
+Power on. The RPi firmware should find the boot partition on NVMe, load U-Boot, and boot Talos.
 
 ### Optional: enable PCIe Gen 3
 
