@@ -12,7 +12,7 @@
 #   make clean               # Remove checkouts and build artifacts
 
 PKG_VERSION = v1.12.0
-TALOS_VERSION = v1.12.3
+TALOS_VERSION = v1.12.4
 SBCOVERLAY_VERSION = main
 
 # Prefer GNU coreutils (macOS: brew install gnu-sed coreutils)

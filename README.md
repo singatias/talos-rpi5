@@ -12,7 +12,7 @@ The official Talos Image Factory does not support CM5 — the mainline kernel la
 
 | Component | Version |
 |-----------|---------|
-| Talos Linux | <a href="https://github.com/siderolabs/talos" target="_blank"><img src="https://img.shields.io/badge/talos-v1.12.3-blue?logo=kubernetes&logoColor=white" alt="Talos version"></a> |
+| Talos Linux | <a href="https://github.com/siderolabs/talos" target="_blank"><img src="https://img.shields.io/badge/talos-v1.12.4-blue?logo=kubernetes&logoColor=white" alt="Talos version"></a> |
 | RPi Kernel | <a href="https://github.com/raspberrypi/linux" target="_blank"><img src="https://img.shields.io/badge/kernel-6.12.47-blue?logo=linux&logoColor=white" alt="Kernel version"></a> |
 | iscsi-tools | <a href="https://github.com/siderolabs/extensions" target="_blank"><img src="https://img.shields.io/badge/iscsi--tools-v0.1.6-blue?logo=docker" alt="iscsi-tools version"></a> |
 | util-linux-tools | <a href="https://github.com/siderolabs/extensions" target="_blank"><img src="https://img.shields.io/badge/util--linux--tools-2.40.4-blue?logo=docker" alt="util-linux-tools version"></a> |
@@ -25,11 +25,11 @@ Release images are published to <a href="https://hub.docker.com/r/svrnty/talos-r
 v<talos>-k<kernel>-<revision>
 ```
 
-For example: `v1.12.3-k6.12.47-2`
+For example: `v1.12.4-k6.12.47-1`
 
 | Segment | Meaning |
 |---------|---------|
-| `v1.12.3` | Upstream Talos Linux version |
+| `v1.12.4` | Upstream Talos Linux version |
 | `k6.12.47` | RPi downstream kernel version |
 | `2` | Build revision (bumped for config/patch changes on the same upstream versions) |
 
@@ -47,7 +47,7 @@ zstd -d metal-arm64.raw.zst -o metal-arm64.raw
 ### Upgrade an existing node
 
 ```bash
-talosctl upgrade --image docker.io/svrnty/talos-rpi5:v1.12.3-k6.12.47-2
+talosctl upgrade --image docker.io/svrnty/talos-rpi5:v1.12.4-k6.12.47-1
 ```
 
 > **Note:** In-place upgrades use GRUB with `--no-nvram` to work around the RPi5/CM5 `SetVariableRT` firmware limitation. This patch is included but not yet tested in production — re-flashing the disk image is the proven fallback.
