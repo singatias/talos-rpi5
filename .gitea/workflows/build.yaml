@@ -20,6 +20,8 @@ jobs:
   build:
     runs-on: [self-hosted, macos]
     timeout-minutes: 180
+    env:
+      PATH: /opt/homebrew/opt/gnu-sed/libexec/gnubin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 
     steps:
       - name: Checkout
