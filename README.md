@@ -98,9 +98,9 @@ This project targets production-ready Talos clusters on RPi5/CM5 hardware.
 | Tested | **Reliable in-place upgrades** | Force GRUB bootloader with `--no-nvram` on arm64, handle SBC EFI-only disk layout. Verified end-to-end with `talosctl upgrade`. |
 | Tested | **Kernel <6.15 compatibility** | Unconditional `open_tree` capability check — falls back to classic bind mounts on RPi downstream kernel 6.12.x. |
 | Untested | **Serial console fix** | Use correct debug UART (`ttyAMA10`) with `earlycon` for early boot output. |
-| Untested | **NVMe boot support** | `dd` image to NVMe + set EEPROM `BOOT_ORDER=0xf416` and `PCIE_PROBE=1`. Kernel has `CONFIG_BLK_DEV_NVME=y` built-in. |
+| Tested | **NVMe boot support** | `dd` image to NVMe + set EEPROM `BOOT_ORDER=0xf416` and `PCIE_PROBE=1`. Verified on 1TB Kingston NVMe on Compute Blade. |
 
-## NVMe boot (untested)
+## NVMe boot
 
 The kernel has NVMe built-in (`CONFIG_BLK_DEV_NVME=y`), so booting from NVMe should work by flashing the disk image directly and configuring the RPi5/CM5 EEPROM.
 
