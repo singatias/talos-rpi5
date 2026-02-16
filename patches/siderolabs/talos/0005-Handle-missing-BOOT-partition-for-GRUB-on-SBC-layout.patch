@@ -1,0 +1,296 @@
+From f615031ee89446cf2520b7a3b458a37905785cd8 Mon Sep 17 00:00:00 2001
+From: Mathias Beaulieu-Duncan <mathias@svrnty.io>
+Date: Mon, 16 Feb 2026 11:31:08 -0500
+Subject: [PATCH 5/5] Handle missing BOOT partition for GRUB on SBC layouts
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+On SBC platforms like RPi5/CM5, the disk layout has no separate BOOT
+(XFS) partition — all boot assets (kernel, initramfs, GRUB config,
+EFI bootloader, firmware) reside on a single EFI (VFAT) partition.
+
+The GRUB bootloader probe, install, and revert functions all assumed a
+BOOT partition exists, causing talosctl upgrade to fail with "partition
+with label BOOT not found" on these layouts.
+
+Fix all three code paths to fall back to mounting the EFI partition at
+/boot when the BOOT partition is absent:
+
+- probe.go: Try EFI at /boot as fallback when BOOT is missing, so
+  the upgrade can detect the existing GRUB installation
+- install.go: Probe for BOOT existence before including it in mount
+  specs; when absent, mount EFI at /boot and adjust --efi-directory
+- revert.go: Fall back to EFI at /boot for rollback operations
+
+This enables in-place upgrades via talosctl upgrade on SBC platforms
+that use EFI-only disk layouts.
+---
+ .../runtime/v1alpha1/bootloader/grub/grub.go  |  3 +-
+ .../v1alpha1/bootloader/grub/install.go       | 48 +++++++++--
+ .../runtime/v1alpha1/bootloader/grub/probe.go | 83 ++++++++++++-------
+ .../v1alpha1/bootloader/grub/revert.go        | 33 ++++++--
+ 4 files changed, 124 insertions(+), 43 deletions(-)
+
+diff --git a/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/grub.go b/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/grub.go
+index 5417ffc77..94406ed3a 100644
+--- a/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/grub.go
++++ b/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/grub.go
+@@ -29,7 +29,8 @@ type Config struct {
+ 	Entries        map[BootLabel]MenuEntry
+ 	AddResetOption bool
+ 
+-	installEFI bool
++	installEFI  bool
++	bootFromEFI bool
+ }
+ 
+ // MenuEntry represents a grub menu entry in the grub config file.
+diff --git a/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/install.go b/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/install.go
+index 766374b3e..54d39f795 100644
+--- a/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/install.go
++++ b/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/install.go
+@@ -33,12 +33,12 @@ const (
+ func (c *Config) Install(opts options.InstallOptions) (*options.InstallResult, error) {
+ 	var installResult *options.InstallResult
+ 
+-	mountSpecs := []mount.Spec{
+-		{
+-			PartitionLabel: constants.BootPartitionLabel,
+-			FilesystemType: partition.FilesystemTypeXFS,
+-			MountTarget:    filepath.Join(opts.MountPrefix, constants.BootMountPoint),
+-		},
++	var mountSpecs []mount.Spec
++
++	bootMountSpec := mount.Spec{
++		PartitionLabel: constants.BootPartitionLabel,
++		FilesystemType: partition.FilesystemTypeXFS,
++		MountTarget:    filepath.Join(opts.MountPrefix, constants.BootMountPoint),
+ 	}
+ 
+ 	efiMountSpec := mount.Spec{
+@@ -47,6 +47,23 @@ func (c *Config) Install(opts options.InstallOptions) (*options.InstallResult, e
+ 		MountTarget:    filepath.Join(opts.MountPrefix, constants.EFIMountPoint),
+ 	}
+ 
++	// check if the BOOT partition is present
++	if err := mount.PartitionOp(
++		opts.BootDisk,
++		[]mount.Spec{bootMountSpec},
++		func() error {
++			return nil
++		},
++		[]blkid.ProbeOption{
++			blkid.WithSkipLocking(true),
++		},
++		nil,
++		nil,
++		opts.BlkidInfo,
++	); err == nil {
++		mountSpecs = append(mountSpecs, bootMountSpec)
++	}
++
+ 	// check if the EFI partition is present
+ 	if err := mount.PartitionOp(
+ 		opts.BootDisk,
+@@ -62,12 +79,20 @@ func (c *Config) Install(opts options.InstallOptions) (*options.InstallResult, e
+ 		opts.BlkidInfo,
+ 	); err == nil {
+ 		c.installEFI = true
+-	}
+ 
+-	if c.installEFI {
++		if len(mountSpecs) == 0 {
++			// No BOOT partition (SBC layout): mount EFI at /boot
++			efiMountSpec.MountTarget = filepath.Join(opts.MountPrefix, constants.BootMountPoint)
++			c.bootFromEFI = true
++		}
++
+ 		mountSpecs = append(mountSpecs, efiMountSpec)
+ 	}
+ 
++	if len(mountSpecs) == 0 {
++		return nil, fmt.Errorf("neither BOOT nor EFI partition found on disk %s", opts.BootDisk)
++	}
++
+ 	err := mount.PartitionOp(
+ 		opts.BootDisk,
+ 		mountSpecs,
+@@ -193,7 +218,12 @@ func (c *Config) install(opts options.InstallOptions) (*options.InstallResult, e
+ 		}
+ 
+ 		if c.installEFI {
+-			args = append(args, "--efi-directory="+filepath.Join(opts.MountPrefix, constants.EFIMountPoint))
++			efiDir := constants.EFIMountPoint
++			if c.bootFromEFI {
++				efiDir = constants.BootMountPoint
++			}
++
++			args = append(args, "--efi-directory="+filepath.Join(opts.MountPrefix, efiDir))
+ 		}
+ 
+ 		if opts.ImageMode || opts.Arch == arm64 {
+diff --git a/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/probe.go b/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/probe.go
+index f5755592f..771ca2a90 100644
+--- a/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/probe.go
++++ b/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/probe.go
+@@ -19,6 +19,31 @@ import (
+ func ProbeWithCallback(disk string, options options.ProbeOptions, callback func(*Config) error) (*Config, error) {
+ 	var grubConf *Config
+ 
++	readConfig := func() error {
++		var err error
++
++		grubConf, err = Read(ConfigPath)
++		if err != nil {
++			return err
++		}
++
++		if grubConf != nil && callback != nil {
++			return callback(grubConf)
++		}
++
++		if grubConf == nil {
++			options.Logf("GRUB: config not found")
++		}
++
++		return nil
++	}
++
++	probeOpts := []mountv3.ManagerOption{
++		mountv3.WithSkipIfMounted(),
++		mountv3.WithReadOnly(),
++	}
++
++	// Try BOOT partition first (standard layout)
+ 	if err := mount.PartitionOp(
+ 		disk,
+ 		[]mount.Spec{
+@@ -28,40 +53,42 @@ func ProbeWithCallback(disk string, options options.ProbeOptions, callback func(
+ 				MountTarget:    constants.BootMountPoint,
+ 			},
+ 		},
+-		func() error {
+-			var err error
+-
+-			grubConf, err = Read(ConfigPath)
+-			if err != nil {
+-				return err
+-			}
+-
+-			if grubConf != nil && callback != nil {
+-				return callback(grubConf)
+-			}
+-
+-			if grubConf == nil {
+-				options.Logf("GRUB: config not found")
+-			}
+-
+-			return nil
+-		},
++		readConfig,
+ 		options.BlockProbeOptions,
+-		[]mountv3.ManagerOption{
+-			mountv3.WithSkipIfMounted(),
+-			mountv3.WithReadOnly(),
+-		},
++		probeOpts,
+ 		nil,
+ 		nil,
+ 	); err != nil {
+-		if xerrors.TagIs[mount.NotFoundTag](err) {
+-			// if partitions are not found, it means GRUB is not installed
+-			options.Logf("GRUB: BOOT partition not found, skipping probing")
+-
+-			return nil, nil
++		if !xerrors.TagIs[mount.NotFoundTag](err) {
++			return nil, err
+ 		}
+ 
+-		return nil, err
++		// BOOT not found, try EFI partition mounted at /boot (SBC layout)
++		options.Logf("GRUB: BOOT partition not found, trying EFI partition")
++
++		if err := mount.PartitionOp(
++			disk,
++			[]mount.Spec{
++				{
++					PartitionLabel: constants.EFIPartitionLabel,
++					FilesystemType: partition.FilesystemTypeVFAT,
++					MountTarget:    constants.BootMountPoint,
++				},
++			},
++			readConfig,
++			options.BlockProbeOptions,
++			probeOpts,
++			nil,
++			nil,
++		); err != nil {
++			if xerrors.TagIs[mount.NotFoundTag](err) {
++				options.Logf("GRUB: neither BOOT nor EFI partition found, skipping probing")
++
++				return nil, nil
++			}
++
++			return nil, err
++		}
+ 	}
+ 
+ 	return grubConf, nil
+diff --git a/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/revert.go b/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/revert.go
+index 3e514d65d..95628193b 100644
+--- a/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/revert.go
++++ b/internal/app/machined/pkg/runtime/v1alpha1/bootloader/grub/revert.go
+@@ -26,6 +26,10 @@ func (c *Config) Revert(disk string) error {
+ 		return fmt.Errorf("cannot revert bootloader: %w", bootloaderNotInstalledError{})
+ 	}
+ 
++	revertOpts := []mountv3.ManagerOption{
++		mountv3.WithSkipIfMounted(),
++	}
++
+ 	err := mount.PartitionOp(
+ 		disk,
+ 		[]mount.Spec{
+@@ -37,14 +41,33 @@ func (c *Config) Revert(disk string) error {
+ 		},
+ 		c.revert,
+ 		nil,
+-		[]mountv3.ManagerOption{
+-			mountv3.WithSkipIfMounted(),
+-		},
++		revertOpts,
+ 		nil,
+ 		nil,
+ 	)
+-	if err != nil && !xerrors.TagIs[mount.NotFoundTag](err) {
+-		return err
++	if err != nil {
++		if !xerrors.TagIs[mount.NotFoundTag](err) {
++			return err
++		}
++
++		// BOOT not found, try EFI partition mounted at /boot (SBC layout)
++		if err := mount.PartitionOp(
++			disk,
++			[]mount.Spec{
++				{
++					PartitionLabel: constants.EFIPartitionLabel,
++					FilesystemType: partition.FilesystemTypeVFAT,
++					MountTarget:    constants.BootMountPoint,
++				},
++			},
++			c.revert,
++			nil,
++			revertOpts,
++			nil,
++			nil,
++		); err != nil && !xerrors.TagIs[mount.NotFoundTag](err) {
++			return err
++		}
+ 	}
+ 
+ 	return nil
+-- 
+2.50.1 (Apple Git-155)
+
