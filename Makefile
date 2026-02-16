@@ -57,7 +57,7 @@ ATTESTATION_ARGS = --provenance=mode=max --sbom=true
 IMAGER_COMMON_FLAGS = \
 	--overlay-name="rpi5" \
 	--overlay-image="$(OVERLAY_IMAGE):$(SBCOVERLAY_TAG)" \
-	--overlay-option="configTxtAppend=$$(cat $(PWD)/config/config.txt.append)" \
+	--overlay-option="configTxt=$$(cat $(PWD)/config/config.txt)" \
 	$(EXTENSION_FLAGS)
 
 #
