@@ -25,13 +25,13 @@ Release images are published to <a href="https://hub.docker.com/r/svrnty/talos-r
 v<talos>-k<kernel>-<revision>
 ```
 
-For example: `v1.12.4-k6.12.47-1`
+For example: `v1.12.4-k6.12.47-3`
 
 | Segment | Meaning |
 |---------|---------|
 | `v1.12.4` | Upstream Talos Linux version |
 | `k6.12.47` | RPi downstream kernel version |
-| `2` | Build revision (bumped for config/patch changes on the same upstream versions) |
+| `3` | Build revision (bumped for config/patch changes on the same upstream versions) |
 
 ## Usage
 
@@ -47,21 +47,17 @@ zstd -d metal-arm64.raw.zst -o metal-arm64.raw
 ### Upgrade an existing node
 
 ```bash
-talosctl upgrade --image docker.io/svrnty/talos-rpi5:v1.12.4-k6.12.47-1
+talosctl upgrade --image docker.io/svrnty/talos-rpi5:v1.12.4-k6.12.47-3 --nodes <node-ip>
 ```
 
-> **Note:** In-place upgrades use GRUB with `--no-nvram` to work around the RPi5/CM5 `SetVariableRT` firmware limitation. This patch is included but not yet tested in production — re-flashing the disk image is the proven fallback.
-
-```bash
-# Fallback: re-flash method
-zstd -d metal-arm64.raw.zst -o metal-arm64.raw
-# Flash to eMMC/SD via your preferred tool
-```
+In-place upgrades are fully supported. The image includes patches to force GRUB with `--no-nvram` on arm64 (working around the RPi5/CM5 `SetVariableRT` firmware limitation) and to handle the SBC EFI-only disk layout (no separate BOOT partition).
 
 ### What's included
 
 - RPi downstream kernel with CM5/RP1 support (4K page size, aligned with upstream Talos)
 - GRUB bootloader with `--no-nvram` for reliable `talosctl upgrade` on RPi5/CM5
+- SBC EFI-only boot layout support (probe, install, revert all fall back to EFI partition when BOOT partition is absent)
+- Fallback to classic bind mounts on kernels without `open_tree` support (Linux <6.15)
 - Overclock: 2.6GHz (`arm_freq=2600`, `over_voltage_delta=50000`, `arm_boost=1`)
 - Extensions: `iscsi-tools`, `util-linux-tools`
 
@@ -79,14 +75,28 @@ Talos ignores the `machine.install.disk` config field on SBC platforms. You **mu
 
 *Upstream: <a href="https://github.com/talos-rpi5/talos-builder/issues/22" target="_blank">talos-builder#22</a>*
 
+## Patches
+
+| Patch | Target | Description |
+|-------|--------|-------------|
+| `0001` (pkgs) | Kernel | RPi downstream kernel 6.12.x with CM5/RP1 device tree and driver support |
+| `0001` (talos) | Modules | arm64 kernel module list for RPi downstream kernel |
+| `0002` (talos) | GRUB | `--no-nvram` for `grub-install` on arm64 (U-Boot lacks EFI `SetVariable`) |
+| `0003` (talos) | Bootloader | Force GRUB over sd-boot on arm64 (sd-boot crashes without EFI runtime) |
+| `0004` (talos) | Runtime | Fallback to classic bind mounts on kernels without `open_tree` (Linux <6.15) |
+| `0005` (talos) | GRUB | Handle missing BOOT partition for SBC EFI-only disk layouts |
+| `0001` (overlay) | Toolchain | Bump Go to 1.24.13 (CVE fix) |
+| `0002` (overlay) | Console | Fix serial console for RPi5/CM5 debug UART (`ttyAMA10`) |
+
 ## Roadmap
 
 This project targets production-ready Talos clusters on RPi5/CM5 hardware.
 
 | Status | Milestone | Description |
 |--------|-----------|-------------|
-| Untested | **4K page size** | Aligned with upstream Talos kernel config. Reduces memory overhead and improves workload compatibility (Longhorn, jemalloc, F2FS, etc.). |
-| Untested | **Reliable in-place upgrades** | Force GRUB bootloader with `--no-nvram` on arm64 to work around the `SetVariableRT` firmware limitation (<a href="https://github.com/talos-rpi5/talos-builder/issues/21" target="_blank">talos-builder#21</a>). |
+| Tested | **4K page size** | Aligned with upstream Talos kernel config. Reduces memory overhead and improves workload compatibility (Longhorn, jemalloc, F2FS, etc.). |
+| Tested | **Reliable in-place upgrades** | Force GRUB bootloader with `--no-nvram` on arm64, handle SBC EFI-only disk layout. Verified end-to-end with `talosctl upgrade`. |
+| Tested | **Kernel <6.15 compatibility** | Unconditional `open_tree` capability check — falls back to classic bind mounts on RPi downstream kernel 6.12.x. |
 | Untested | **Serial console fix** | Use correct debug UART (`ttyAMA10`) with `earlycon` for early boot output. |
 | Untested | **NVMe boot support** | `dd` image to NVMe + set EEPROM `BOOT_ORDER=0xf416` and `PCIE_PROBE=1`. Kernel has `CONFIG_BLK_DEV_NVME=y` built-in. |
 
