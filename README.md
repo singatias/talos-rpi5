@@ -25,7 +25,7 @@ Release images are published to <a href="https://hub.docker.com/r/svrnty/talos-r
 v<talos>-k<kernel>-<revision>
 ```
 
-For example: `v1.12.4-k6.12.47-3`
+For example: `v1.12.4-k6.12.47-4`
 
 | Segment | Meaning |
 |---------|---------|
@@ -47,7 +47,7 @@ zstd -d metal-arm64.raw.zst -o metal-arm64.raw
 ### Upgrade an existing node
 
 ```bash
-talosctl upgrade --image docker.io/svrnty/talos-rpi5:v1.12.4-k6.12.47-3 --nodes <node-ip>
+talosctl upgrade --image docker.io/svrnty/talos-rpi5:v1.12.4-k6.12.47-4 --nodes <node-ip>
 ```
 
 In-place upgrades are fully supported. The image includes patches to force GRUB with `--no-nvram` on arm64 (working around the RPi5/CM5 `SetVariableRT` firmware limitation) and to handle the SBC EFI-only disk layout (no separate BOOT partition).
