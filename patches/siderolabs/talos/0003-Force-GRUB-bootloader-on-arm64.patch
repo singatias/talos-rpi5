@@ -5,19 +5,28 @@ Subject: [PATCH 3/3] Force GRUB bootloader on arm64
 
 On arm64 platforms like RPi5/CM5, the UEFI firmware (U-Boot) exposes
 /sys/firmware/efi but does not support EFI runtime SetVariable. This
-causes NewAuto() to select sd-boot, which then fails when trying to
-write EFI variables during installation/upgrade.
+causes sd-boot to fail when trying to write EFI variables during
+installation/upgrade.
 
-Force GRUB on arm64 since it uses config files instead of EFI
-variables for boot configuration. Combined with the --no-nvram patch,
+Force GRUB on arm64 in two places:
+
+- NewAuto(): When no existing bootloader is detected, create a GRUB
+  config instead of sd-boot. This handles fresh installs.
+
+- Probe(): When an existing GRUB config is not found, skip sd-boot
+  probing and return a fresh GRUB config. This handles the first
+  upgrade on SBC images that ship with sd-boot UKI files — the
+  upgrade transitions from sd-boot to GRUB automatically.
+
+Combined with the --no-nvram patch and the SBC EFI-only layout patch,
 this enables reliable in-place upgrades via talosctl upgrade on
-RPi5/CM5 hardware.
+RPi5/CM5 hardware, including the first upgrade from a fresh flash.
 
 Ref: https://github.com/siderolabs/talos/issues/10859
 Ref: https://github.com/talos-rpi5/talos-builder/issues/21
 ---
- .../machined/pkg/runtime/v1alpha1/bootloader/bootloader.go   | 5 +++++
- 1 file changed, 5 insertions(+)
+ .../machined/pkg/runtime/v1alpha1/bootloader/bootloader.go | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
 diff --git a/internal/app/machined/pkg/runtime/v1alpha1/bootloader/bootloader.go b/internal/app/machined/pkg/runtime/v1alpha1/bootloader/bootloader.go
 index f084e09..5c388c1 100644
@@ -28,11 +37,29 @@ index f084e09..5c388c1 100644
  	"fmt"
  	"os"
 +	goruntime "runtime"
- 
+
  	"github.com/siderolabs/go-blockdevice/v2/block"
  	"github.com/siderolabs/go-blockdevice/v2/partitioning/gpt"
-@@ -73,6 +74,10 @@ func Probe(disk string, options options.ProbeOptions) (Bootloader, error) {
- 
+@@ -56,7 +57,17 @@ func Probe(disk string, options options.ProbeOptions) (Bootloader, error) {
+
+ 		return grubBootloader, nil
+ 	}
+
++	// On arm64, sd-boot requires EFI SetVariable runtime service which is
++	// not available on platforms like RPi5/CM5 (U-Boot). Skip sd-boot
++	// probing and return a fresh GRUB config to transition from sd-boot
++	// to GRUB on the first upgrade.
++	if goruntime.GOARCH == "arm64" {
++		options.Logf("arm64: no GRUB config found, creating new GRUB bootloader (sd-boot not supported)")
++
++		return grub.NewConfig(), nil
++	}
++
+ 	sdbootBootloader, err := sdboot.Probe(disk, options)
+ 	if err != nil {
+ 		return nil, err
+@@ -73,6 +84,10 @@ func Probe(disk string, options options.ProbeOptions) (Bootloader, error) {
+
  // NewAuto returns a new bootloader based on auto-detection.
  func NewAuto() Bootloader {
 +	if goruntime.GOARCH == "arm64" {
@@ -42,6 +69,6 @@ index f084e09..5c388c1 100644
  	if sdboot.IsUEFIBoot() {
  		return sdboot.New()
  	}
--- 
+--
 2.50.1 (Apple Git-155)
 
