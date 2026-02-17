@@ -57,7 +57,7 @@ ATTESTATION_ARGS = --provenance=mode=max --sbom=true
 IMAGER_COMMON_FLAGS = \
 	--overlay-name="rpi5" \
 	--overlay-image="$(OVERLAY_IMAGE):$(SBCOVERLAY_TAG)" \
-	--overlay-option="configTxtAppend=$$(cat $(PWD)/config/config.txt.append)" \
+	--overlay-option="configTxt=$$(cat $(PWD)/config/config.txt)" \
 	$(EXTENSION_FLAGS)
 
 #
@@ -124,7 +124,8 @@ patches-overlay:
 		else \
 			echo "Overlay Go $$GO_VER — skipping Go toolchain patch (CVEs fixed upstream)"; \
 		fi && \
-		git am "$(PATCHES_DIRECTORY)/talos-rpi5/sbc-raspberrypi5/0002-"*.patch
+		git am "$(PATCHES_DIRECTORY)/talos-rpi5/sbc-raspberrypi5/0002-"*.patch && \
+		git am "$(PATCHES_DIRECTORY)/talos-rpi5/sbc-raspberrypi5/0003-"*.patch
 
 patches: patches-pkgs patches-talos patches-overlay
 
