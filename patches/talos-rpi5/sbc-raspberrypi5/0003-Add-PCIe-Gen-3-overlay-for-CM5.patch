@@ -1,0 +1,66 @@
+From b7b424db9b0f771c60c4090c30bf1246eeef6995 Mon Sep 17 00:00:00 2001
+From: Mathias Beaulieu-Duncan <mathias@openharbor.io>
+Date: Mon, 16 Feb 2026 19:07:45 -0500
+Subject: [PATCH] Add PCIe Gen 3 overlay for CM5
+
+The CM5 device tree (bcm2712-rpi-cm5-cm5io.dtb) lacks the pciex1 alias
+that the Pi 5 DTB provides, making dtparam=pciex1_gen=3 silently
+non-functional on CM5 boards.
+
+This adds a custom device tree overlay (pcie-gen3.dtbo) that targets
+/axi/pcie@1000110000 directly to set max-link-speed = <3>, bypassing
+the missing alias entirely. The overlay is embedded in the installer
+binary and written to /boot/EFI/overlays/ during install/upgrade.
+
+Combined with dtoverlay=pcie-gen3 in config.txt, this enables PCIe
+Gen 3 (8.0 GT/s, ~800 MB/s) for NVMe on CM5 Compute Blades.
+---
+ installers/rpi5/src/main.go        |  10 ++++++++++
+ installers/rpi5/src/pcie-gen3.dtbo | Bin 0 -> 230 bytes
+ 2 files changed, 10 insertions(+)
+ create mode 100644 installers/rpi5/src/pcie-gen3.dtbo
+
+diff --git a/installers/rpi5/src/main.go b/installers/rpi5/src/main.go
+index fed3819..1134168 100644
+--- a/installers/rpi5/src/main.go
++++ b/installers/rpi5/src/main.go
+@@ -17,6 +17,9 @@ import (
+ //go:embed config.txt
+ var configTxt []byte
+ 
++//go:embed pcie-gen3.dtbo
++var pcieGen3Dtbo []byte
++
+ func main() {
+ 	adapter.Execute(&RpiInstaller{})
+ }
+@@ -52,6 +55,13 @@ func (i *RpiInstaller) Install(options overlay.InstallOptions[rpiOptions]) error
+ 		return err
+ 	}
+ 
++	// Write custom PCIe Gen 3 overlay for CM5 (its DTB lacks the pciex1 alias
++	// needed by dtparam, so we target pcie@1000110000 directly).
++	err = os.WriteFile(filepath.Join(options.MountPrefix, "/boot/EFI/overlays/pcie-gen3.dtbo"), pcieGen3Dtbo, 0o644)
++	if err != nil {
++		return err
++	}
++
+ 	if options.ExtraOptions.ConfigTxt != "" {
+ 		configTxt = []byte(options.ExtraOptions.ConfigTxt)
+ 	}
+diff --git a/installers/rpi5/src/pcie-gen3.dtbo b/installers/rpi5/src/pcie-gen3.dtbo
+new file mode 100644
+index 0000000000000000000000000000000000000000..863d0ea1bd8860dd361fe12d017330655d97a39e
+GIT binary patch
+literal 230
+zcmcb>`|m9S1H&^QwgBP-K&%18f<P<)#2}ys#2sK3D!~ZlG6QK|5Id<TIaensIoHVC
+z&<HBWm{ydSo|~Fi;$Q$40jU)QVs8D!icI~2<jhnDLjwZ?Ll6N`!N9;6AD>^AT9lJm
+z86OYQ1k%F-#Ntpk6Oe{s&gA^ug2a-{q?}ZSlEk9))Dm4FH-jNJu|hW|GcQ}WxF9t(
+Gg#iGv7$sN$
+
+literal 0
+HcmV?d00001
+
+-- 
+2.50.1 (Apple Git-155)
+

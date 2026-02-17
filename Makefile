@@ -124,7 +124,8 @@ patches-overlay:
 		else \
 			echo "Overlay Go $$GO_VER — skipping Go toolchain patch (CVEs fixed upstream)"; \
 		fi && \
-		git am "$(PATCHES_DIRECTORY)/talos-rpi5/sbc-raspberrypi5/0002-"*.patch
+		git am "$(PATCHES_DIRECTORY)/talos-rpi5/sbc-raspberrypi5/0002-"*.patch && \
+		git am "$(PATCHES_DIRECTORY)/talos-rpi5/sbc-raspberrypi5/0003-"*.patch
 
 patches: patches-pkgs patches-talos patches-overlay
 
