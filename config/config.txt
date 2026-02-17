@@ -18,9 +18,7 @@ enable_uart=1
 [pi5]
 enable_uart=0
 # Enable PCIe Gen 3 for NVMe (~800 MB/s vs ~400 MB/s Gen 2)
-# CM5 DTB lacks the pciex1 alias needed for dtparam=pciex1_gen=3,
-# so we use a custom overlay that targets pcie@1000110000 directly.
-dtoverlay=pcie-gen3
+dtparam=pciex1_gen=3
 [all]
 # Disable Bluetooth.
 dtoverlay=disable-bt

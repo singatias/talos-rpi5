@@ -1,0 +1,67 @@
+From 113b5acba0bfc2fcc4f7494f88b0b9601bdbd4c2 Mon Sep 17 00:00:00 2001
+From: Mathias Beaulieu-Duncan <mathias@openharbor.io>
+Date: Mon, 16 Feb 2026 19:07:45 -0500
+Subject: [PATCH] Fix SBC overlay upgrade: detect EFI mount path for SBC
+ layouts
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+On SBC platforms (RPi5/CM5), the disk layout has no separate BOOT
+partition. During upgrades, the GRUB install code mounts the EFI
+partition at /boot instead of /boot/EFI. The overlay installer was
+always writing to /boot/EFI, causing config.txt and firmware files
+to end up in the wrong subdirectory — invisible to the firmware.
+
+Detect the SBC layout by checking if config.txt already exists at
+/boot/ (indicating EFI is mounted there), and write files to the
+correct location. Also clean up any stale /boot/EFI/ directory
+from previous incorrect upgrades.
+---
+ installers/rpi5/src/main.go | 22 +++++++++++++++++-----
+ 1 file changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/installers/rpi5/src/main.go b/installers/rpi5/src/main.go
+index fed3819..862d72e 100644
+--- a/installers/rpi5/src/main.go
++++ b/installers/rpi5/src/main.go
+@@ -42,13 +42,25 @@ func (i *RpiInstaller) GetOptions(extra rpiOptions) (overlay.Options, error) {
+ }
+ 
+ func (i *RpiInstaller) Install(options overlay.InstallOptions[rpiOptions]) error {
+-	err := copy.Dir(filepath.Join(options.ArtifactsPath, "arm64/firmware/boot"), filepath.Join(options.MountPrefix, "/boot/EFI"))
+-	if err != nil {
++	// Determine where the EFI partition is mounted.
++	// Standard layout: BOOT (XFS) at /boot, EFI (VFAT) at /boot/EFI
++	// SBC layout:      no BOOT partition, EFI (VFAT) at /boot
++	efiDir := filepath.Join(options.MountPrefix, "/boot/EFI")
++
++	if _, err := os.Stat(filepath.Join(options.MountPrefix, "/boot/config.txt")); err == nil {
++		// config.txt exists at /boot — EFI partition is mounted at /boot (SBC layout).
++		efiDir = filepath.Join(options.MountPrefix, "/boot")
++
++		// Clean up stale /boot/EFI/ directory from previous upgrades that
++		// wrote to the wrong path.
++		os.RemoveAll(filepath.Join(options.MountPrefix, "/boot/EFI"))
++	}
++
++	if err := copy.Dir(filepath.Join(options.ArtifactsPath, "arm64/firmware/boot"), efiDir); err != nil {
+ 		return err
+ 	}
+ 
+-	err = copy.File(filepath.Join(options.ArtifactsPath, "arm64/u-boot/rpi5/u-boot.bin"), filepath.Join(options.MountPrefix, "/boot/EFI/u-boot.bin"))
+-	if err != nil {
++	if err := copy.File(filepath.Join(options.ArtifactsPath, "arm64/u-boot/rpi5/u-boot.bin"), filepath.Join(efiDir, "u-boot.bin")); err != nil {
+ 		return err
+ 	}
+ 
+@@ -58,5 +70,5 @@ func (i *RpiInstaller) Install(options overlay.InstallOptions[rpiOptions]) error
+ 
+ 	configTxt = append(configTxt, []byte("\n"+options.ExtraOptions.ConfigTxtAppend)...)
+ 
+-	return os.WriteFile(filepath.Join(options.MountPrefix, "/boot/EFI/config.txt"), configTxt, 0o644)
++	return os.WriteFile(filepath.Join(efiDir, "config.txt"), configTxt, 0o644)
+ }
+-- 
+2.50.1 (Apple Git-155)
+
