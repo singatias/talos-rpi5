@@ -59,6 +59,7 @@ In-place upgrades are fully supported. The image includes patches to force GRUB 
 - SBC EFI-only boot layout support (probe, install, revert all fall back to EFI partition when BOOT partition is absent)
 - Fallback to classic bind mounts on kernels without `open_tree` support (Linux <6.15)
 - Overclock: 2.6GHz (`arm_freq=2600`, `over_voltage_delta=50000`, `arm_boost=1`)
+- PCIe Gen 3 enabled for NVMe (~800 MB/s, via `dtparam=pciex1_gen=3` in `config.txt`)
 - Extensions: `iscsi-tools`, `util-linux-tools`
 
 ## Known issues
@@ -87,6 +88,7 @@ Talos ignores the `machine.install.disk` config field on SBC platforms. You **mu
 | `0005` (talos) | GRUB | Handle missing BOOT partition for SBC EFI-only disk layouts |
 | `0001` (overlay) | Toolchain | Bump Go to 1.24.13 (CVE fix) |
 | `0002` (overlay) | Console | Fix serial console for RPi5/CM5 debug UART (`ttyAMA10`) |
+| `0003` (overlay) | Upgrade | Detect EFI mount path for SBC layouts (no BOOT partition) |
 
 ## Roadmap
 
@@ -145,13 +147,25 @@ Power on. The RPi firmware should find the boot partition on NVMe, load U-Boot, 
 
 ### Optional: enable PCIe Gen 3
 
-Add to your `configTxtAppend` overlay option or directly to `config.txt` on the boot partition:
+PCIe Gen 3 doubles NVMe throughput (~400 MB/s → ~800 MB/s). Not officially certified by Raspberry Pi but stable on most NVMe drives.
 
-```ini
-dtparam=pciex1_gen=3
+**New installs** — PCIe Gen 3 is enabled by default in images built from this repo (`config.txt.append` includes `dtparam=pciex1_gen=3`).
+
+**Existing nodes** — After a `talosctl upgrade`, the overlay rewrites `config.txt` with the baked-in settings (including PCIe Gen 3). If you need to enable it manually on an older image:
+
+1. Power off the node and remove the NVMe drive
+2. Connect via USB adapter and mount the first (EFI) partition
+3. Add to `config.txt` under the `[pi5]` section:
+   ```ini
+   dtparam=pciex1_gen=3
+   ```
+4. Unmount, reinstall the drive, and power on
+
+To verify after boot:
+```bash
+talosctl -n <ip> dmesg | grep -i pcie
+# Look for "Gen 3" in the PCIe link speed output
 ```
-
-This doubles throughput (~400 MB/s Gen 2 to ~800 MB/s Gen 3). Not officially certified by Raspberry Pi but works on most NVMe drives.
 
 ## Building
 
