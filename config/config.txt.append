@@ -1,7 +1,5 @@
 # Enable PCIe Gen 3 for NVMe (~800 MB/s vs ~400 MB/s Gen 2)
-[pi5]
 dtparam=pciex1_gen=3
-[all]
 # CM5 Overclock — 2.6GHz stable on Compute Blade with heatsink
 arm_freq=2600
 over_voltage_delta=50000
