@@ -167,6 +167,59 @@ talosctl -n <ip> dmesg | grep -i pcie
 # Look for "Gen 3" in the PCIe link speed output
 ```
 
+## Reference architecture
+
+Recommended storage layout for production Talos clusters on CM5 Compute Blade hardware. Each CM5 has a 32GB eMMC and an M.2 NVMe slot.
+
+| Role | Boot disk | NVMe | EEPROM `BOOT_ORDER` | Rationale |
+|------|-----------|------|---------------------|-----------|
+| **Control plane** | NVMe | Talos OS | `0xf416` (NVMe first) | etcd lives on the STATE partition — NVMe gives ~800 MB/s sequential and ~50K random IOPS for fast consensus and snapshot I/O. |
+| **Postgres / storage** | eMMC | Data (`/var/mnt/data`) | `0xf214` (eMMC first) | Talos OS on eMMC keeps `talosctl upgrade` away from the data drive. The full 1TB NVMe is dedicated to database storage via `machine.disks`. |
+| **Compute workers** | eMMC | None | `0xf214` (eMMC first) | Stateless workloads — no local storage needed. eMMC is more than enough for Talos OS (~2.2GB used). |
+
+### Storage configuration
+
+**Control planes** — no extra config needed. Talos installs to the NVMe automatically when it's the boot disk.
+
+**Postgres / storage nodes** — add `machine.disks` to mount the NVMe as a data volume:
+
+```yaml
+machine:
+    disks:
+        - device: /dev/nvme0n1
+          partitions:
+              - mountpoint: /var/mnt/data
+```
+
+Talos automatically partitions, formats (XFS), and mounts the NVMe on first boot. The data persists across `talosctl upgrade` since upgrades only touch the boot disk (eMMC).
+
+**Compute workers** — no storage config needed.
+
+### EEPROM setup
+
+All CM5 modules require `PCIE_PROBE=1` for NVMe detection on Compute Blade (non-HAT+ carrier). Set via `rpiboot`:
+
+```ini
+# recovery/boot.conf
+BOOT_ORDER=0xf416   # NVMe-first (control planes)
+# or
+BOOT_ORDER=0xf214   # eMMC-first (storage/compute workers)
+PCIE_PROBE=1         # always required
+```
+
+### Overclock
+
+All node types share the same overclock config (baked into the image via `config.txt.append`):
+
+```ini
+arm_freq=2600
+over_voltage_delta=50000
+arm_boost=1
+dtparam=pciex1_gen=3
+```
+
+Verified stable at 44.6°C max under full CPU + memory + disk stress across 10 nodes with Compute Blade heatsinks.
+
 ## Building
 
 For local builds, CI/CD setup, runner configuration, and project structure, see [TECHNICAL.md](TECHNICAL.md).
