@@ -2,6 +2,7 @@
 
 Custom Talos Linux images for Raspberry Pi 5 / CM5 on Compute Blade hardware.
 
+<a href="https://git.openharbor.io/svrnty/talos-rpi5/releases" target="_blank"><img src="https://img.shields.io/badge/releases-Gitea-green?logo=gitea&logoColor=white" alt="Gitea Releases"></a>
 <a href="https://hub.docker.com/r/svrnty/talos-rpi5" target="_blank"><img src="https://img.shields.io/docker/v/svrnty/talos-rpi5?sort=semver&label=talos-rpi5&logo=docker&arch=arm64" alt="Docker Hub"></a>
 <a href="https://hub.docker.com/r/svrnty/talos-rpi5" target="_blank"><img src="https://img.shields.io/docker/pulls/svrnty/talos-rpi5?logo=docker" alt="Docker Pulls"></a>
 <a href="https://hub.docker.com/r/svrnty/talos-rpi5" target="_blank"><img src="https://img.shields.io/docker/image-size/svrnty/talos-rpi5?sort=semver&logo=docker&arch=arm64" alt="Docker Image Size"></a>
