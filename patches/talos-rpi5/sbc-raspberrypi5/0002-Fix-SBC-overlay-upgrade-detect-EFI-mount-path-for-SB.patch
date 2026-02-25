@@ -1,6 +1,6 @@
-From 85585f84af18e1cba6080e95490b275e69d0309e Mon Sep 17 00:00:00 2001
+From 5cdfe8ddb717e8de4e9d1c9e3000614ad8a1b5bb Mon Sep 17 00:00:00 2001
 From: Mathias Beaulieu-Duncan <mathias@openharbor.io>
-Date: Mon, 16 Feb 2026 19:07:45 -0500
+Date: Wed, 25 Feb 2026 12:41:51 -0500
 Subject: [PATCH] Fix SBC overlay upgrade: detect EFI mount path for SBC
  layouts
 MIME-Version: 1.0
@@ -17,14 +17,29 @@ Detect the SBC layout by checking if config.txt already exists at
 /boot/ (indicating EFI is mounted there), and write files to the
 correct location.
 ---
- installers/rpi5/src/main.go | 18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
+ installers/rpi5/src/config.txt |  3 ++-
+ installers/rpi5/src/main.go    | 18 +++++++++++++-----
+ 2 files changed, 15 insertions(+), 6 deletions(-)
 
+diff --git a/installers/rpi5/src/config.txt b/installers/rpi5/src/config.txt
+index 1445d0e..e38291b 100644
+--- a/installers/rpi5/src/config.txt
++++ b/installers/rpi5/src/config.txt
+@@ -11,7 +11,8 @@ kernel=u-boot.bin
+ arm_64bit=1
+ # Run as fast as firmware / board allows.
+ arm_boost=1
+-# Enable the primary/console UART.
++# Enable UART0 on GPIO 14/15 (Pi5/CM5 requires explicit dt overlay).
++dtoverlay=uart0-pi5
+ enable_uart=1
+ # Disable Bluetooth.
+ dtoverlay=disable-bt
 diff --git a/installers/rpi5/src/main.go b/installers/rpi5/src/main.go
-index fed3819..4bf8c38 100644
+index 38cd824..155a86b 100644
 --- a/installers/rpi5/src/main.go
 +++ b/installers/rpi5/src/main.go
-@@ -42,13 +42,21 @@ func (i *RpiInstaller) GetOptions(extra rpiOptions) (overlay.Options, error) {
+@@ -41,13 +41,21 @@ func (i *RpiInstaller) GetOptions(extra rpiOptions) (overlay.Options, error) {
  }
  
  func (i *RpiInstaller) Install(options overlay.InstallOptions[rpiOptions]) error {
@@ -50,7 +65,7 @@ index fed3819..4bf8c38 100644
  		return err
  	}
  
-@@ -58,5 +66,5 @@ func (i *RpiInstaller) Install(options overlay.InstallOptions[rpiOptions]) error
+@@ -57,5 +65,5 @@ func (i *RpiInstaller) Install(options overlay.InstallOptions[rpiOptions]) error
  
  	configTxt = append(configTxt, []byte("\n"+options.ExtraOptions.ConfigTxtAppend)...)
  

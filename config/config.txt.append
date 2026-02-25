@@ -1,5 +1,8 @@
 # Enable PCIe Gen 3 for NVMe (~800 MB/s vs ~400 MB/s Gen 2)
 dtparam=pciex1_gen=3
+# Enable GPIO UART0 (ttyAMA0) on Pi5/CM5 for serial console
+# Must load AFTER disable-bt and disable-wifi overlays in config.txt
+dtoverlay=uart0-pi5
 # CM5 Overclock — 2.6GHz stable on Compute Blade with heatsink
 arm_freq=2600
 over_voltage_delta=50000

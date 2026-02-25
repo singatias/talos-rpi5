@@ -61,13 +61,49 @@ In-place upgrades are fully supported. The image includes patches to force GRUB 
 - Fallback to classic bind mounts on kernels without `open_tree` support (Linux <6.15)
 - Overclock: 2.6GHz (`arm_freq=2600`, `over_voltage_delta=50000`, `arm_boost=1`)
 - PCIe Gen 3 enabled for NVMe (~800 MB/s, via `dtparam=pciex1_gen=3` in `config.txt`)
+- Serial console on GPIO UART0 (`dtoverlay=uart0-pi5`, 115200 baud, even parity)
 - Extensions: `iscsi-tools`, `util-linux-tools`
 
 ## Known issues
 
-### ~~No serial console output after boot~~ (Fixed)
+### Serial console (read-only)
 
-The overlay was using `console=ttyAMA0` (GPIO 14/15 UART) but the RPi5/CM5 debug UART is `ttyAMA10`. Fixed by switching to `console=ttyAMA10,115200` and adding `earlycon=pl011,0x107d001000,115200n8` for early boot output. Also added `[pi5] enable_uart=0` to `config.txt` to match upstream and avoid U-Boot compatibility issues.
+The serial console outputs kernel logs, boot messages, and panic traces over GPIO UART0 (`ttyAMA0`) at 115200 baud with **even parity**. Talos Linux has no interactive shell — the console is **read-only** and cannot accept input.
+
+On Pi5/CM5, GPIO 14/15 are not mapped to UART by default (unlike Pi4). The `dtoverlay=uart0-pi5` device tree overlay is required and is applied via `configTxtAppend` (after `disable-bt` and `disable-wifi` — ordering matters).
+
+#### Wiring (Compute Blade)
+
+Connect a **3.3V** USB-to-UART adapter to the front UART header (3-pin: GND, RX, TX). Only two wires are needed for read-only monitoring:
+
+```
+  USB-UART Adapter          Compute Blade (Front UART)
+  ┌──────────────┐          ┌──────────────┐
+  │          GND ├──────────┤ GND          │
+  │           RX ├──────────┤ TX           │
+  │           TX │          │ RX           │
+  └──────────────┘          └──────────────┘
+      3.3V logic              3.3V GPIO
+```
+
+- **Adapter RX** connects to **Blade TX** (adapter receives data from the blade)
+- **GND** to **GND** (common ground reference)
+- Adapter TX is not needed for read-only monitoring (Talos has no shell to send input to)
+
+> **Warning:** CM5 GPIO is **3.3V only**. A 5V logic adapter will crash or damage the board.
+
+Tested with: [USB to TTL Serial Cable (FT232RNL)](https://www.pishop.ca/product/usb-to-ttl-serial-cable-for-raspberry-pi-5-debugging-ft232rnl-chip/) set to 3.3V mode.
+
+#### Reading the console
+
+```bash
+# macOS — use screen with even parity
+screen /dev/cu.usbserial-XXXXXXXX 115200,,cse
+
+# Linux — configure with stty, then read with cat
+stty -F /dev/ttyUSB0 115200 cs8 parenb -parodd
+cat /dev/ttyUSB0
+```
 
 *Upstream: <a href="https://github.com/talos-rpi5/talos-builder/issues/4" target="_blank">talos-builder#4</a>*
 
@@ -88,8 +124,7 @@ Talos ignores the `machine.install.disk` config field on SBC platforms. You **mu
 | `0004` (talos) | Runtime | Fallback to classic bind mounts on kernels without `open_tree` (Linux <6.15) |
 | `0005` (talos) | GRUB | Handle missing BOOT partition for SBC EFI-only disk layouts |
 | `0001` (overlay) | Toolchain | Bump Go to 1.24.13 (CVE fix) |
-| `0002` (overlay) | Console | Fix serial console for RPi5/CM5 debug UART (`ttyAMA10`) |
-| `0003` (overlay) | Upgrade | Detect EFI mount path for SBC layouts (no BOOT partition) |
+| `0002` (overlay) | Upgrade | Detect EFI mount path for SBC layouts (no BOOT partition) |
 
 ## Roadmap
 
@@ -100,7 +135,7 @@ This project targets production-ready Talos clusters on RPi5/CM5 hardware.
 | Tested | **4K page size** | Aligned with upstream Talos kernel config. Reduces memory overhead and improves workload compatibility (Longhorn, jemalloc, F2FS, etc.). |
 | Tested | **Reliable in-place upgrades** | Force GRUB bootloader with `--no-nvram` on arm64, handle SBC EFI-only disk layout. Verified end-to-end with `talosctl upgrade`. |
 | Tested | **Kernel <6.15 compatibility** | Unconditional `open_tree` capability check — falls back to classic bind mounts on RPi downstream kernel 6.12.x. |
-| Untested | **Serial console fix** | Use correct debug UART (`ttyAMA10`) with `earlycon` for early boot output. |
+| Tested | **Serial console** | GPIO UART0 (`ttyAMA0`) via `dtoverlay=uart0-pi5`. Read-only output at 115200 baud, even parity. Verified on Compute Blade with FT232RNL adapter. |
 | Tested | **NVMe boot support** | `dd` image to NVMe + set EEPROM `BOOT_ORDER=0xf416` and `PCIE_PROBE=1`. Verified on 1TB Kingston NVMe on Compute Blade. |
 
 ## NVMe boot
@@ -213,10 +248,11 @@ PCIE_PROBE=1         # always required
 All node types share the same overclock config (baked into the image via `config.txt.append`):
 
 ```ini
+dtparam=pciex1_gen=3
+dtoverlay=uart0-pi5
 arm_freq=2600
 over_voltage_delta=50000
 arm_boost=1
-dtparam=pciex1_gen=3
 ```
 
 Verified stable at 44.6°C max under full CPU + memory + disk stress across 10 nodes with Compute Blade heatsinks.
