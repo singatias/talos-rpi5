@@ -18,7 +18,7 @@ on:
 
 jobs:
   build:
-    runs-on: [self-hosted, macos]
+    runs-on: talos-rpi5
     timeout-minutes: 180
 
     steps:
